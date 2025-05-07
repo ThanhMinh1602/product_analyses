@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:product_lytics/routes/app_routes.dart';
 
 class AuthController extends GetxController {
@@ -24,15 +23,13 @@ class AuthController extends GetxController {
 
   Future<void> login() async {
     try {
-      EasyLoading.show(status: 'Đang đăng nhập...');
       await _auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      EasyLoading.dismiss();
+
       Get.offAllNamed(AppRoutes.home);
     } on FirebaseAuthException catch (e) {
-      EasyLoading.dismiss();
       Get.snackbar(
         'Lỗi',
         e.message ?? 'Đã xảy ra lỗi trong quá trình đăng nhập',
@@ -56,7 +53,6 @@ class AuthController extends GetxController {
         return;
       }
 
-      EasyLoading.show(status: 'Đang đăng ký...');
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -68,10 +64,8 @@ class AuthController extends GetxController {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      EasyLoading.dismiss();
       Get.offAllNamed(AppRoutes.home);
     } on FirebaseAuthException catch (e) {
-      EasyLoading.dismiss();
       Get.snackbar(
         'Lỗi',
         e.message ?? 'Đã xảy ra lỗi trong quá trình đăng ký',
@@ -84,12 +78,10 @@ class AuthController extends GetxController {
 
   Future<void> logout() async {
     try {
-      EasyLoading.show(status: 'Đang đăng xuất...');
       await _auth.signOut();
-      EasyLoading.dismiss();
+
       Get.offAllNamed(AppRoutes.login);
     } catch (e) {
-      EasyLoading.dismiss();
       Get.snackbar(
         'Lỗi',
         'Đã xảy ra lỗi trong quá trình đăng xuất',

@@ -102,7 +102,10 @@ class AnalysisController extends GetxController {
   Future<Map<String, dynamic>> _analyzeReview(String review) async {
     try {
       // Initialize Gemini API
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: '');
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: 'AIzaSyAVbVnn7Xr0UbmSrPwCVmMb-mwvO4r_2xU',
+      );
 
       // Create prompt for sentiment analysis in Vietnamese
       final prompt = '''

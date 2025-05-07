@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:product_lytics/firebase_options.dart';
 import 'package:product_lytics/routes/app_pages.dart';
 import 'package:product_lytics/routes/app_routes.dart';
@@ -26,7 +25,6 @@ class MyApp extends StatelessWidget {
       initialRoute: AppRoutes.splash,
       getPages: AppPages.routes,
       debugShowCheckedModeBanner: false,
-      builder: EasyLoading.init(),
     );
   }
 }
