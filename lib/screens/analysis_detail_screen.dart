@@ -55,12 +55,6 @@ class AnalysisDetailScreen extends StatelessWidget {
           );
         }
 
-        final avgScore =
-            controller.analysisResults
-                .map((result) => result['sentiment_score'] as double)
-                .reduce((a, b) => a + b) /
-            controller.analysisResults.length;
-
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -107,9 +101,10 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   value:
                                       controller
                                           .sentimentDistribution
-                                          .value['positive'],
+                                          .value['positive'] ??
+                                      0,
                                   title:
-                                      '${controller.sentimentDistribution.value['positive']?.toStringAsFixed(1)}%',
+                                      '${(controller.sentimentDistribution.value['positive'] ?? 0).toStringAsFixed(1)}%',
                                   titleStyle: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -122,9 +117,10 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   value:
                                       controller
                                           .sentimentDistribution
-                                          .value['neutral'],
+                                          .value['neutral'] ??
+                                      0,
                                   title:
-                                      '${controller.sentimentDistribution.value['neutral']?.toStringAsFixed(1)}%',
+                                      '${(controller.sentimentDistribution.value['neutral'] ?? 0).toStringAsFixed(1)}%',
                                   titleStyle: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -137,9 +133,10 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   value:
                                       controller
                                           .sentimentDistribution
-                                          .value['negative'],
+                                          .value['negative'] ??
+                                      0,
                                   title:
-                                      '${controller.sentimentDistribution.value['negative']?.toStringAsFixed(1)}%',
+                                      '${(controller.sentimentDistribution.value['negative'] ?? 0).toStringAsFixed(1)}%',
                                   titleStyle: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -161,25 +158,31 @@ class AnalysisDetailScreen extends StatelessWidget {
                               theme,
                               Colors.green,
                               'Tích Cực',
-                              controller.sentimentDistribution.value['positive']
-                                      ?.toStringAsFixed(1) ??
-                                  '0',
+                              (controller
+                                          .sentimentDistribution
+                                          .value['positive'] ??
+                                      0)
+                                  .toStringAsFixed(1),
                             ),
                             _buildLegendItem(
                               theme,
                               Colors.orange,
                               'Trung Tính',
-                              controller.sentimentDistribution.value['neutral']
-                                      ?.toStringAsFixed(1) ??
-                                  '0',
+                              (controller
+                                          .sentimentDistribution
+                                          .value['neutral'] ??
+                                      0)
+                                  .toStringAsFixed(1),
                             ),
                             _buildLegendItem(
                               theme,
                               Colors.red,
                               'Tiêu Cực',
-                              controller.sentimentDistribution.value['negative']
-                                      ?.toStringAsFixed(1) ??
-                                  '0',
+                              (controller
+                                          .sentimentDistribution
+                                          .value['negative'] ??
+                                      0)
+                                  .toStringAsFixed(1),
                             ),
                           ],
                         ),
@@ -188,6 +191,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+
                 // Tổng Quan
                 Card(
                   child: Padding(
@@ -217,13 +221,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                           controller.analysisResults.length.toString(),
                           Icons.comment,
                         ),
-                        const SizedBox(height: 12),
-                        _buildOverviewItem(
-                          theme,
-                          'Điểm trung bình',
-                          avgScore.toStringAsFixed(1),
-                          Icons.star,
-                        ),
                       ],
                     ),
                   ),
@@ -245,6 +242,23 @@ class AnalysisDetailScreen extends StatelessWidget {
                 ...controller.analysisResults.asMap().entries.map((entry) {
                   final index = entry.key;
                   final result = entry.value;
+
+                  // Extract sentiment percentages
+                  final sentimentPercentages =
+                      result['sentiment_percentages'] as Map<String, dynamic>;
+                  final positivePercent =
+                      sentimentPercentages['positive_percent'];
+                  final neutralPercent =
+                      sentimentPercentages['neutral_percent'];
+                  final negativePercent =
+                      sentimentPercentages['negative_percent'];
+
+                  // Get polarity score and sentiment strength
+                  final polarityScore =
+                      result['polarity_score'] as double? ?? 0.0;
+                  final sentimentStrength =
+                      result['sentiment_strength'] as int? ?? 0;
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 16),
                     child: Padding(
@@ -252,7 +266,9 @@ class AnalysisDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Bình luận
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CircleAvatar(
                                 backgroundColor: theme.colorScheme.primary,
@@ -260,84 +276,220 @@ class AnalysisDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 16),
                               Expanded(
-                                child: Text(
-                                  result['review'] as String? ??
-                                      'Không có nội dung',
-                                  style: theme.textTheme.bodyLarge,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '1. Bình luận:',
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      result['review'] as String? ??
+                                          'Không có nội dung',
+                                      style: theme.textTheme.bodyLarge,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.sentiment_satisfied,
+
+                          // Từ khóa chính
+                          Text(
+                            '2. Từ khóa chính:',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                (result['main_keywords'] as List?)
+                                    ?.map(
+                                      (keyword) => Chip(
+                                        label: Text(
+                                          keyword.toString(),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        backgroundColor: theme
+                                            .colorScheme
+                                            .primary
+                                            .withOpacity(0.1),
+                                      ),
+                                    )
+                                    .toList() ??
+                                [],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Cảm xúc và tỷ lệ
+                          Text(
+                            '3. Phân tích cảm xúc:',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _getSentimentColor(
+                                result['sentiment'] as String? ?? 'neutral',
+                              ).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
                                 color: _getSentimentColor(
                                   result['sentiment'] as String? ?? 'neutral',
                                 ),
-                                size: 20,
+                                width: 1,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _mapSentimentToVietnamese(
-                                  result['sentiment'] as String? ?? 'neutral',
-                                ),
-                                style: TextStyle(
-                                  color: _getSentimentColor(
-                                    result['sentiment'] as String? ?? 'neutral',
-                                  ),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Icon(
-                                Icons.star,
-                                color: theme.colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                (result['sentiment_score'] as double?)
-                                        ?.toStringAsFixed(1) ??
-                                    '0.0',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if ((result['keywords'] as List?)?.isNotEmpty ??
-                              false) ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children:
-                                  (result['keywords'] as List)
-                                      .map(
-                                        (keyword) => Chip(
-                                          label: Text(
-                                            keyword.toString(),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: theme.colorScheme.primary,
-                                            ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Sentiment type
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.sentiment_satisfied,
+                                          color: _getSentimentColor(
+                                            result['sentiment'] as String? ??
+                                                'neutral',
                                           ),
-                                          backgroundColor: theme
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _mapSentimentToVietnamese(
+                                            result['sentiment'] as String? ??
+                                                'neutral',
+                                          ),
+                                          style: TextStyle(
+                                            color: _getSentimentColor(
+                                              result['sentiment'] as String? ??
+                                                  'neutral',
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
                                           ),
                                         ),
-                                      )
-                                      .toList(),
+                                      ],
+                                    ),
+
+                                    // Polarity Score
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getSentimentColor(
+                                          result['sentiment'] as String? ??
+                                              'neutral',
+                                        ).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'Polarity: ',
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                          Text(
+                                            polarityScore.toStringAsFixed(2),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: _getSentimentColor(
+                                                result['sentiment']
+                                                        as String? ??
+                                                    'neutral',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Sentiment Strength
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.show_chart,
+                                      color: _getSentimentColor(
+                                        result['sentiment'] as String? ??
+                                            'neutral',
+                                      ),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Độ mạnh cảm xúc: ',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                    Text(
+                                      '$sentimentStrength%',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _getSentimentColor(
+                                          result['sentiment'] as String? ??
+                                              'neutral',
+                                        ),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Sentiment distribution
+                                Text(
+                                  'Phân bố cảm xúc:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Tỷ lệ cảm xúc
+                                _buildSentimentBar(
+                                  theme,
+                                  'Tích cực',
+                                  positivePercent.toDouble(),
+                                  Colors.green,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildSentimentBar(
+                                  theme,
+                                  'Trung tính',
+                                  neutralPercent.toDouble(),
+                                  Colors.orange,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildSentimentBar(
+                                  theme,
+                                  'Tiêu cực',
+                                  negativePercent.toDouble(),
+                                  Colors.red,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
@@ -348,6 +500,49 @@ class AnalysisDetailScreen extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildSentimentBar(
+    ThemeData theme,
+    String label,
+    double percentage,
+    Color color,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('$label: ', style: theme.textTheme.bodyMedium),
+            Text(
+              '${percentage.toStringAsFixed(1)}%',
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Stack(
+          children: [
+            Container(
+              height: 8,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            Container(
+              height: 8,
+              width: percentage * 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

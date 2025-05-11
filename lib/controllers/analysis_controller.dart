@@ -19,6 +19,12 @@ class AnalysisController extends GetxController {
     'negative': 0.0,
   });
 
+  // Thêm phân phối đặc điểm sản phẩm
+  final aspectDistribution = Rx<Map<String, int>>({});
+
+  // Danh sách tất cả các khía cạnh sản phẩm được đề cập
+  final allAspects = <String>[].obs;
+
   Future<void> analyzeReviews() async {
     if (reviewsController.text.trim().isEmpty) {
       Get.snackbar(
@@ -43,15 +49,20 @@ class AnalysisController extends GetxController {
 
       // Clear previous results
       analysisResults.clear();
+      aspectDistribution.value = {};
+      allAspects.clear();
 
       // Analyze each review
       for (final review in reviews) {
-        final result = await _analyzeReview(review);
+        final result = await _analyzeReviewNLP(review);
         analysisResults.add(result);
       }
 
       // Calculate sentiment distribution
       updateSentimentDistribution();
+
+      // Update aspect distribution
+      updateAspectDistribution();
 
       // Navigate to results screen
       Get.toNamed(AppRoutes.analysisDetail);
@@ -99,7 +110,34 @@ class AnalysisController extends GetxController {
     };
   }
 
-  Future<Map<String, dynamic>> _analyzeReview(String review) async {
+  // Cập nhật phân phối các khía cạnh được đề cập trong đánh giá
+  void updateAspectDistribution() {
+    if (analysisResults.isEmpty) {
+      aspectDistribution.value = {};
+      allAspects.clear();
+      return;
+    }
+
+    final Map<String, int> aspects = {};
+    final Set<String> uniqueAspects = {};
+
+    for (final result in analysisResults) {
+      if (result.containsKey('aspects')) {
+        for (final aspect in result['aspects'] as List<dynamic>) {
+          final aspectName = aspect['aspect'] as String;
+          uniqueAspects.add(aspectName);
+          aspects[aspectName] = (aspects[aspectName] ?? 0) + 1;
+        }
+      }
+    }
+
+    // Cập nhật RxList và RxMap
+    allAspects.assignAll(uniqueAspects.toList());
+    aspectDistribution.value = aspects;
+  }
+
+  // Phân tích đánh giá theo chuẩn NLP
+  Future<Map<String, dynamic>> _analyzeReviewNLP(String review) async {
     try {
       // Initialize Gemini API
       final model = GenerativeModel(
@@ -107,33 +145,49 @@ class AnalysisController extends GetxController {
         apiKey: 'AIzaSyAVbVnn7Xr0UbmSrPwCVmMb-mwvO4r_2xU',
       );
 
-      // Create prompt for sentiment analysis in Vietnamese
+      // Tạo prompt tập trung vào yêu cầu của người dùng với polarity score
       final prompt = '''
-      Analyze the sentiment of the following review written in Vietnamese and return the result in JSON format only, without any additional text, markdown, or code block markers like ```json. The sentiment should be "positive", "negative", or "neutral". Provide a sentiment_score (from 0 to 5, where 0 is very negative and 5 is very positive). Extract a list of all evaluative words or phrases in Vietnamese (e.g., "tốt", "rất tốt", "tệ", "bình thường") that reflect the sentiment expressed in the review. Include all relevant words/phrases, even if they appear multiple times.
+      Phân tích đánh giá sản phẩm bằng tiếng Việt sau đây và trả kết quả dưới dạng JSON. KHÔNG trả về bất kỳ nội dung khác ngoài JSON (không có dấu ``, markdown, hoặc text thừa).
 
-      Review text: $review
+      1. comment: Nội dung bình luận gốc
+      2. main_keywords: Danh sách các từ khóa chính được sử dụng để đánh giá (3-5 từ khóa chính)
+      3. sentiment: Phân loại cảm xúc tổng thể ("positive", "negative", hoặc "neutral")
+      4. polarity_score: Điểm phân cực cảm xúc từ -1.0 đến 1.0 
+         - Giá trị > 0 là tích cực
+         - Giá trị < 0 là tiêu cực
+         - Giá trị ≈ 0 là trung lập
+      5. sentiment_strength: Độ mạnh của cảm xúc, quy đổi polarity score thành phần trăm (0-100%)
 
-      Example reviews and responses:
-      - Review: "Sản phẩm này dùng rất tốt, tôi rất hài lòng!"
-        Response: {
-          "sentiment": "positive",
-          "sentiment_score": 4.5,
-          "keywords": ["tốt", "rất tốt", "hài lòng", "rất hài lòng"]
-        }
-      - Review: "Giao hàng chậm, dịch vụ tệ."
-        Response: {
-          "sentiment": "negative",
-          "sentiment_score": 1.0,
-          "keywords": ["chậm", "tệ"]
-        }
-      - Review: "Sản phẩm bình thường, không có gì đặc biệt."
-        Response: {
-          "sentiment": "neutral",
-          "sentiment_score": 3.0,
-          "keywords": ["bình thường"]
-        }
+      Đánh giá: $review
 
-      Return the response in JSON format only.
+      Ví dụ JSON cho đánh giá tích cực:
+      {
+        "comment": "Sản phẩm rất tốt, tôi rất hài lòng",
+        "main_keywords": ["rất tốt", "hài lòng"],
+        "sentiment": "positive",
+        "polarity_score": 0.75,
+        "sentiment_strength": 75
+      }
+
+      Ví dụ JSON cho đánh giá tiêu cực:
+      {
+        "comment": "Sản phẩm chất lượng kém, rất thất vọng",
+        "main_keywords": ["chất lượng kém", "thất vọng"],
+        "sentiment": "negative",
+        "polarity_score": -0.68,
+        "sentiment_strength": 68
+      }
+
+      Ví dụ JSON cho đánh giá trung lập:
+      {
+        "comment": "Sản phẩm bình thường, có ưu điểm và nhược điểm",
+        "main_keywords": ["bình thường", "ưu điểm", "nhược điểm"],
+        "sentiment": "neutral",
+        "polarity_score": 0.05,
+        "sentiment_strength": 5
+      }
+
+      Chỉ trả về JSON, không kèm theo bất kỳ văn bản giải thích hoặc ghi chú nào.
       ''';
 
       // Send request to Gemini API
@@ -156,20 +210,57 @@ class AnalysisController extends GetxController {
       // Parse JSON response
       final data = jsonDecode(cleanedResponse);
 
+      // Calculate sentiment percentages based on polarity score
+      final double polarityScore = data['polarity_score'].toDouble();
+      final int sentimentStrength = data['sentiment_strength'];
+
+      Map<String, double> sentimentPercentages = {};
+
+      if (data['sentiment'] == 'positive') {
+        sentimentPercentages = {
+          'positive_percent': sentimentStrength.toDouble(),
+          'neutral_percent': 100 - sentimentStrength.toDouble(),
+          'negative_percent': 0,
+        };
+      } else if (data['sentiment'] == 'negative') {
+        sentimentPercentages = {
+          'positive_percent': 0,
+          'neutral_percent': 100 - sentimentStrength.toDouble(),
+          'negative_percent': sentimentStrength.toDouble(),
+        };
+      } else {
+        // Neutral - distribute remaining percentage between positive and negative
+        final remainingPercent = 100 - sentimentStrength.toDouble();
+        sentimentPercentages = {
+          'positive_percent': remainingPercent / 2,
+          'neutral_percent': sentimentStrength.toDouble(),
+          'negative_percent': remainingPercent / 2,
+        };
+      }
+
+      // Chuyển đổi dữ liệu sang định dạng phù hợp
       return {
-        'review': review,
+        'review': data['comment'],
+        'main_keywords': List<String>.from(data['main_keywords']),
         'sentiment': data['sentiment'],
-        'sentiment_score': data['sentiment_score'].toDouble(),
-        'keywords': List<String>.from(data['keywords']),
+        'polarity_score': polarityScore,
+        'sentiment_strength': sentimentStrength,
+        'sentiment_percentages': sentimentPercentages,
       };
     } catch (e) {
-      // Fallback to simple sentiment analysis for demo
-      print('Error analyzing review: $e');
+      // Phương án dự phòng khi có lỗi
+      print('Error analyzing review with NLP: $e');
       return {
         'review': review,
+        'main_keywords': [],
         'sentiment': 'neutral',
-        'sentiment_score': 3.0,
-        'keywords': [],
+        'polarity_score': 0.0,
+        'sentiment_strength': 0,
+        'sentiment_percentages': {
+          'positive_percent': 33.3,
+          'neutral_percent': 33.4,
+          'negative_percent': 33.3,
+        },
       };
     }
   }
