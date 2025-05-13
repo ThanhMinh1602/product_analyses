@@ -6,26 +6,33 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'dart:convert';
 import 'package:product_lytics/routes/app_routes.dart';
 
+// Controller xử lý phân tích đánh giá sản phẩm sử dụng GetX
 class AnalysisController extends GetxController {
+  // Khai báo các dịch vụ Firebase
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Controller để nhập đánh giá và các biến theo dõi trạng thái
   final reviewsController = TextEditingController();
-  final isLoading = false.obs;
-  final analysisResults = <Map<String, dynamic>>[].obs;
+  final isLoading = false.obs; // Trạng thái đang tải
+  final analysisResults = <Map<String, dynamic>>[].obs; // Kết quả phân tích
+
+  // Phân phối cảm xúc tổng quát (tích cực, trung tính, tiêu cực)
   final sentimentDistribution = Rx<Map<String, double>>({
     'positive': 0.0,
     'neutral': 0.0,
     'negative': 0.0,
   });
 
-  // Thêm phân phối đặc điểm sản phẩm
+  // Phân phối đặc điểm sản phẩm được đề cập trong đánh giá
   final aspectDistribution = Rx<Map<String, int>>({});
 
   // Danh sách tất cả các khía cạnh sản phẩm được đề cập
   final allAspects = <String>[].obs;
 
+  // Hàm phân tích đánh giá người dùng
   Future<void> analyzeReviews() async {
+    // Kiểm tra đầu vào
     if (reviewsController.text.trim().isEmpty) {
       Get.snackbar(
         'Lỗi',
@@ -38,33 +45,33 @@ class AnalysisController extends GetxController {
     }
 
     try {
-      isLoading.value = true;
+      isLoading.value = true; // Bắt đầu quá trình tải
 
-      // Split reviews into lines and filter empty lines
+      // Tách các đánh giá thành các dòng riêng biệt và loại bỏ dòng trống
       final reviews =
           reviewsController.text
               .split('\n')
               .where((review) => review.trim().isNotEmpty)
               .toList();
 
-      // Clear previous results
+      // Xóa kết quả phân tích trước đó
       analysisResults.clear();
       aspectDistribution.value = {};
       allAspects.clear();
 
-      // Analyze each review
+      // Phân tích từng đánh giá một
       for (final review in reviews) {
         final result = await _analyzeReviewNLP(review);
         analysisResults.add(result);
       }
 
-      // Calculate sentiment distribution
+      // Tính toán phân phối cảm xúc
       updateSentimentDistribution();
 
-      // Update aspect distribution
+      // Cập nhật phân phối đặc điểm
       updateAspectDistribution();
 
-      // Navigate to results screen
+      // Chuyển đến màn hình chi tiết kết quả
       Get.toNamed(AppRoutes.analysisDetail);
     } catch (e) {
       Get.snackbar(
@@ -75,10 +82,11 @@ class AnalysisController extends GetxController {
         colorText: Colors.red,
       );
     } finally {
-      isLoading.value = false;
+      isLoading.value = false; // Kết thúc quá trình tải
     }
   }
 
+  // Cập nhật phân phối cảm xúc tổng thể
   void updateSentimentDistribution() {
     if (analysisResults.isEmpty) {
       sentimentDistribution.value = {
@@ -89,6 +97,7 @@ class AnalysisController extends GetxController {
       return;
     }
 
+    // Tính tỷ lệ phần trăm cho mỗi loại cảm xúc
     final total = analysisResults.length;
     final positiveCount =
         analysisResults
@@ -118,6 +127,7 @@ class AnalysisController extends GetxController {
       return;
     }
 
+    // Thống kê tần suất xuất hiện của các khía cạnh
     final Map<String, int> aspects = {};
     final Set<String> uniqueAspects = {};
 
@@ -131,21 +141,21 @@ class AnalysisController extends GetxController {
       }
     }
 
-    // Cập nhật RxList và RxMap
+    // Cập nhật danh sách và phân phối khía cạnh
     allAspects.assignAll(uniqueAspects.toList());
     aspectDistribution.value = aspects;
   }
 
-  // Phân tích đánh giá theo chuẩn NLP
+  // Phân tích đánh giá sử dụng NLP (Xử lý ngôn ngữ tự nhiên)
   Future<Map<String, dynamic>> _analyzeReviewNLP(String review) async {
     try {
-      // Initialize Gemini API
+      // Khởi tạo API Gemini
       final model = GenerativeModel(
         model: 'gemini-1.5-flash',
         apiKey: 'AIzaSyAVbVnn7Xr0UbmSrPwCVmMb-mwvO4r_2xU',
       );
 
-      // Tạo prompt tập trung vào yêu cầu của người dùng với polarity score
+      // Tạo yêu cầu phân tích với định hướng cụ thể
       final prompt = '''
       Phân tích đánh giá sản phẩm bằng tiếng Việt sau đây và trả kết quả dưới dạng JSON. KHÔNG trả về bất kỳ nội dung khác ngoài JSON (không có dấu ``, markdown, hoặc text thừa).
 
@@ -190,14 +200,14 @@ class AnalysisController extends GetxController {
       Chỉ trả về JSON, không kèm theo bất kỳ văn bản giải thích hoặc ghi chú nào.
       ''';
 
-      // Send request to Gemini API
+      // Gửi yêu cầu đến API Gemini
       final content = [Content.text(prompt)];
       final response = await model.generateContent(content);
 
-      // Debug: Print raw response
+      // Ghi log phản hồi từ API
       print('Raw response from Gemini: ${response.text}');
 
-      // Clean response to remove ```json or other markers
+      // Xử lý phản hồi để loại bỏ các ký tự đánh dấu
       String cleanedResponse = response.text!.trim();
       if (cleanedResponse.startsWith('```json')) {
         cleanedResponse = cleanedResponse.substring(7).trim();
@@ -207,15 +217,17 @@ class AnalysisController extends GetxController {
             cleanedResponse.substring(0, cleanedResponse.length - 3).trim();
       }
 
-      // Parse JSON response
+      // Phân tích dữ liệu JSON
       final data = jsonDecode(cleanedResponse);
 
-      // Calculate sentiment percentages based on polarity score
+      // Tính toán phần trăm cảm xúc dựa trên điểm phân cực
       final double polarityScore = data['polarity_score'].toDouble();
       final int sentimentStrength = data['sentiment_strength'];
 
+      // Khởi tạo đối tượng chứa tỷ lệ phần trăm cảm xúc
       Map<String, double> sentimentPercentages = {};
 
+      // Tính toán tỷ lệ cảm xúc dựa trên loại cảm xúc
       if (data['sentiment'] == 'positive') {
         sentimentPercentages = {
           'positive_percent': sentimentStrength.toDouble(),
@@ -229,7 +241,7 @@ class AnalysisController extends GetxController {
           'negative_percent': sentimentStrength.toDouble(),
         };
       } else {
-        // Neutral - distribute remaining percentage between positive and negative
+        // Trung lập - phân phối phần trăm còn lại giữa tích cực và tiêu cực
         final remainingPercent = 100 - sentimentStrength.toDouble();
         sentimentPercentages = {
           'positive_percent': remainingPercent / 2,
@@ -238,7 +250,7 @@ class AnalysisController extends GetxController {
         };
       }
 
-      // Chuyển đổi dữ liệu sang định dạng phù hợp
+      // Trả về kết quả phân tích đã được định dạng
       return {
         'review': data['comment'],
         'main_keywords': List<String>.from(data['main_keywords']),
@@ -248,7 +260,7 @@ class AnalysisController extends GetxController {
         'sentiment_percentages': sentimentPercentages,
       };
     } catch (e) {
-      // Phương án dự phòng khi có lỗi
+      // Xử lý lỗi và trả về kết quả mặc định khi có lỗi
       print('Error analyzing review with NLP: $e');
       return {
         'review': review,
@@ -265,6 +277,7 @@ class AnalysisController extends GetxController {
     }
   }
 
+  // Giải phóng tài nguyên khi controller bị hủy
   @override
   void onClose() {
     reviewsController.dispose();
