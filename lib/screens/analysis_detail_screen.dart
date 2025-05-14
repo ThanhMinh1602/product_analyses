@@ -3,13 +3,11 @@ import 'package:get/get.dart';
 import 'package:product_lytics/controllers/analysis_controller.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-// Màn hình hiển thị chi tiết kết quả phân tích
 class AnalysisDetailScreen extends StatelessWidget {
   const AnalysisDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Lấy controller từ GetX dependency injection
     final controller = Get.find<AnalysisController>();
     final theme = Theme.of(context);
 
@@ -20,7 +18,6 @@ class AnalysisDetailScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: () {
-              // TODO: Implement share functionality
               Get.snackbar(
                 'Thông báo',
                 'Tính năng chia sẻ đang được phát triển',
@@ -32,11 +29,23 @@ class AnalysisDetailScreen extends StatelessWidget {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: () async {
+              await controller.saveAnalysisToFirebase();
+              Get.snackbar(
+                'Thông báo',
+                'Đã lưu phân tích vào lịch sử',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: Colors.green.withOpacity(0.1),
+                colorText: Colors.green,
+              );
+            },
+          ),
         ],
       ),
-      // Sử dụng Obx để phản ứng với thay đổi dữ liệu từ controller
+
       body: Obx(() {
-        // Hiển thị thông báo khi không có kết quả
         if (controller.analysisResults.isEmpty) {
           return Center(
             child: Column(
@@ -59,7 +68,6 @@ class AnalysisDetailScreen extends StatelessWidget {
           );
         }
 
-        // Hiển thị kết quả phân tích
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -73,7 +81,6 @@ class AnalysisDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Biểu đồ phân bố cảm xúc tổng thể
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -96,13 +103,12 @@ class AnalysisDetailScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        // Biểu đồ tròn hiển thị tỷ lệ cảm xúc
+
                         SizedBox(
                           height: 200,
                           child: PieChart(
                             PieChartData(
                               sections: [
-                                // Phần biểu đồ cho cảm xúc tích cực
                                 PieChartSectionData(
                                   color: Colors.green,
                                   value:
@@ -119,7 +125,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   ),
                                   radius: 80,
                                 ),
-                                // Phần biểu đồ cho cảm xúc trung tính
+
                                 PieChartSectionData(
                                   color: Colors.orange,
                                   value:
@@ -136,7 +142,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   ),
                                   radius: 80,
                                 ),
-                                // Phần biểu đồ cho cảm xúc tiêu cực
+
                                 PieChartSectionData(
                                   color: Colors.red,
                                   value:
@@ -159,8 +165,8 @@ class AnalysisDetailScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        // Chú thích cho biểu đồ
+                        const SizedBox(height: 30),
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
@@ -201,8 +207,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Thông tin tổng quan
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -225,7 +229,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        // Hiển thị tổng số bình luận đã phân tích
+
                         _buildOverviewItem(
                           theme,
                           'Tổng số bình luận',
@@ -233,7 +237,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                           Icons.comment,
                         ),
                         const SizedBox(height: 12),
-                        // Hiển thị tổng điểm Polarity và tỷ lệ
+
                         _buildOverviewItem(
                           theme,
                           'Trung bình Polarity',
@@ -260,12 +264,11 @@ class AnalysisDetailScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Danh sách chi tiết các kết quả phân tích
+
                 ...controller.analysisResults.asMap().entries.map((entry) {
                   final index = entry.key;
                   final result = entry.value;
 
-                  // Trích xuất tỷ lệ cảm xúc
                   final sentimentPercentages =
                       result['sentiment_percentages'] as Map<String, dynamic>;
                   final positivePercent =
@@ -275,7 +278,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                   final negativePercent =
                       sentimentPercentages['negative_percent'];
 
-                  // Lấy điểm polarityScore và độ mạnh cảm xúc
                   final polarityScore =
                       result['polarity_score'] as double? ?? 0.0;
                   final sentimentStrength =
@@ -288,7 +290,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Phần hiển thị nội dung bình luận
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -321,7 +322,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
 
-                          // Phần hiển thị từ khóa chính
                           Text(
                             '2. Từ khóa chính:',
                             style: theme.textTheme.titleSmall?.copyWith(
@@ -354,7 +354,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
 
-                          // Phần phân tích cảm xúc
                           Text(
                             '3. Phân tích cảm xúc:',
                             style: theme.textTheme.titleSmall?.copyWith(
@@ -384,7 +383,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    // Loại cảm xúc (tích cực, tiêu cực, trung tính)
                                     Row(
                                       children: [
                                         Icon(
@@ -416,7 +414,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Độ mạnh cảm xúc
                                 Row(
                                   children: [
                                     Icon(
@@ -447,14 +444,12 @@ class AnalysisDetailScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Tiêu đề phân bố cảm xúc
                                 Text(
                                   'Phân bố cảm xúc:',
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 8),
 
-                                // Chỉ hiển thị thanh cảm xúc chính của bình luận
                                 if (result['sentiment'] == 'positive')
                                   _buildSentimentBar(
                                     theme,
@@ -492,7 +487,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     );
   }
 
-  // Tạo thanh hiển thị phần trăm cảm xúc
   Widget _buildSentimentBar(
     ThemeData theme,
     String label,
@@ -514,7 +508,6 @@ class AnalysisDetailScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Stack(
           children: [
-            // Thanh nền
             Container(
               height: 8,
               width: double.infinity,
@@ -523,7 +516,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            // Thanh hiển thị giá trị
+
             Container(
               height: 8,
               width: percentage * 3,
@@ -538,7 +531,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     );
   }
 
-  // Tạo mục chú thích cho biểu đồ
   Widget _buildLegendItem(
     ThemeData theme,
     Color color,
@@ -567,7 +559,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     );
   }
 
-  // Tạo mục thông tin tổng quan
   Widget _buildOverviewItem(
     ThemeData theme,
     String label,
@@ -595,7 +586,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     );
   }
 
-  // Chuyển đổi cảm xúc từ tiếng Anh sang tiếng Việt
   String _mapSentimentToVietnamese(String sentiment) {
     switch (sentiment.toLowerCase()) {
       case 'positive':
@@ -608,7 +598,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     }
   }
 
-  // Lấy màu tương ứng với loại cảm xúc
   Color _getSentimentColor(String sentiment) {
     switch (sentiment.toLowerCase()) {
       case 'positive':
@@ -620,7 +609,6 @@ class AnalysisDetailScreen extends StatelessWidget {
     }
   }
 
-  // Tính tổng điểm polarity và hiển thị dưới dạng tỷ lệ
   String _calculateAveragePolarityScore(List<Map<String, dynamic>> results) {
     if (results.isEmpty) return "0.00";
 

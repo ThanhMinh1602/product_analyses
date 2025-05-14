@@ -19,6 +19,10 @@ class HomeScreen extends StatelessWidget {
             icon: const Icon(Icons.analytics),
             onPressed: () => Get.toNamed(AppRoutes.analysis),
           ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () => Get.toNamed(AppRoutes.history),
+          ),
         ],
       ),
       drawer: Drawer(
@@ -77,6 +81,14 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 Get.back();
                 Get.toNamed(AppRoutes.analysis);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.history, color: theme.colorScheme.primary),
+              title: const Text('Lịch sử phân tích'),
+              onTap: () {
+                Get.back();
+                Get.toNamed(AppRoutes.history);
               },
             ),
             const Divider(),

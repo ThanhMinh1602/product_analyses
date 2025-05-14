@@ -7,7 +7,7 @@ class AnalysisScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(AnalysisController());
+    final controller = Get.find<AnalysisController>();
     final theme = Theme.of(context);
 
     return Scaffold(

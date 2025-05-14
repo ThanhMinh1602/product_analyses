@@ -71,7 +71,11 @@ class AnalysisController extends GetxController {
       // Cập nhật phân phối đặc điểm
       updateAspectDistribution();
 
+      // Lưu kết quả phân tích vào Firebase
+      await saveAnalysisToFirebase();
+
       // Chuyển đến màn hình chi tiết kết quả
+      reviewsController.clear();
       Get.toNamed(AppRoutes.analysisDetail);
     } catch (e) {
       Get.snackbar(
@@ -274,6 +278,63 @@ class AnalysisController extends GetxController {
           'negative_percent': 33.3,
         },
       };
+    }
+  }
+
+  // Lưu kết quả phân tích vào Firebase
+  Future<void> saveAnalysisToFirebase() async {
+    try {
+      // Kiểm tra xem người dùng đã đăng nhập chưa
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        print('Không thể lưu: Người dùng chưa đăng nhập');
+        return;
+      }
+
+      // Tạo đối tượng phân tích để lưu vào Firestore
+      final analysisData = {
+        'userId': currentUser.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+        'reviews': analysisResults,
+        'sentimentDistribution': sentimentDistribution.value,
+        'reviewCount': analysisResults.length,
+      };
+
+      // Lưu vào Firestore
+      await _firestore.collection('analyses').add(analysisData);
+
+      print('Đã lưu kết quả phân tích vào Firebase');
+    } catch (e) {
+      print('Lỗi khi lưu kết quả phân tích: $e');
+    }
+  }
+
+  // Lấy lịch sử phân tích từ Firestore
+  Future<List<Map<String, dynamic>>> getAnalysisHistory() async {
+    try {
+      // Kiểm tra xem người dùng đã đăng nhập chưa
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        return [];
+      }
+
+      // Truy vấn Firestore để lấy lịch sử phân tích của người dùng hiện tại
+      final querySnapshot =
+          await _firestore
+              .collection('analyses')
+              .where('userId', isEqualTo: currentUser.uid)
+              .orderBy('timestamp', descending: true)
+              .get();
+
+      // Chuyển đổi dữ liệu từ Firestore thành danh sách Map
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id; // Thêm ID tài liệu vào dữ liệu
+        return data;
+      }).toList();
+    } catch (e) {
+      print('Lỗi khi lấy lịch sử phân tích: $e');
+      return [];
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:product_lytics/screens/auth/register_screen.dart';
 import 'package:product_lytics/screens/home_screen.dart';
 import 'package:product_lytics/screens/analysis_screen.dart';
 import 'package:product_lytics/screens/analysis_detail_screen.dart';
+import 'package:product_lytics/screens/history_screen.dart';
 
 class AppPages {
   static final routes = [
@@ -15,5 +16,6 @@ class AppPages {
     GetPage(name: AppRoutes.home, page: () => const HomeScreen()),
     GetPage(name: AppRoutes.analysis, page: () => AnalysisScreen()),
     GetPage(name: AppRoutes.analysisDetail, page: () => AnalysisDetailScreen()),
+    GetPage(name: AppRoutes.history, page: () => const HistoryScreen()),
   ];
 }
