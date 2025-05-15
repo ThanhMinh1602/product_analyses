@@ -63,7 +63,6 @@ class AuthController extends GetxController {
         password: passwordController.text.trim(),
       );
 
-      // Store user data in Firestore
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'email': emailController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
