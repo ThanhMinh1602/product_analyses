@@ -112,13 +112,28 @@ class RegisterScreen extends StatelessWidget {
                               },
                             ),
                             const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: () async {
-                                if (formKey.currentState!.validate()) {
-                                  await controller.register();
-                                }
-                              },
-                              child: const Text('Register'),
+                            Obx(
+                              () => ElevatedButton(
+                                onPressed:
+                                    controller.isLoading.value
+                                        ? null
+                                        : () async {
+                                          if (formKey.currentState!
+                                              .validate()) {
+                                            await controller.register();
+                                          }
+                                        },
+                                child:
+                                    controller.isLoading.value
+                                        ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                        : const Text('Register'),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             TextButton(

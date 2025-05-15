@@ -10,7 +10,6 @@ class AnalysisDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<AnalysisController>();
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kết Quả Phân Tích'),
@@ -26,19 +25,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                 colorText: theme.colorScheme.onSurface,
                 margin: const EdgeInsets.all(16),
                 borderRadius: 8,
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: () async {
-              await controller.saveAnalysisToFirebase();
-              Get.snackbar(
-                'Thông báo',
-                'Đã lưu phân tích vào lịch sử',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.green.withOpacity(0.1),
-                colorText: Colors.green,
               );
             },
           ),
@@ -81,132 +67,132 @@ class AnalysisDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.pie_chart,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Phân Bổ Cảm Xúc',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
+                // Card(
+                //   child: Padding(
+                //     padding: const EdgeInsets.all(16.0),
+                //     child: Column(
+                //       crossAxisAlignment: CrossAxisAlignment.start,
+                //       children: [
+                //         Row(
+                //           children: [
+                //             Icon(
+                //               Icons.pie_chart,
+                //               color: theme.colorScheme.primary,
+                //             ),
+                //             const SizedBox(width: 8),
+                //             Text(
+                //               'Phân Bổ Cảm Xúc',
+                //               style: theme.textTheme.titleMedium?.copyWith(
+                //                 fontWeight: FontWeight.bold,
+                //               ),
+                //             ),
+                //           ],
+                //         ),
+                //         const SizedBox(height: 16),
 
-                        SizedBox(
-                          height: 200,
-                          child: PieChart(
-                            PieChartData(
-                              sections: [
-                                PieChartSectionData(
-                                  color: Colors.green,
-                                  value:
-                                      controller
-                                          .sentimentDistribution
-                                          .value['positive'] ??
-                                      0,
-                                  title:
-                                      '${(controller.sentimentDistribution.value['positive'] ?? 0).toStringAsFixed(1)}%',
-                                  titleStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  radius: 80,
-                                ),
+                //         SizedBox(
+                //           height: 200,
+                //           child: PieChart(
+                //             PieChartData(
+                //               sections: [
+                //                 PieChartSectionData(
+                //                   color: Colors.green,
+                //                   value:
+                //                       controller
+                //                           .sentimentDistribution
+                //                           .value['positive'] ??
+                //                       0,
+                //                   title:
+                //                       '${(controller.sentimentDistribution.value['positive'] ?? 0).toStringAsFixed(1)}%',
+                //                   titleStyle: const TextStyle(
+                //                     fontSize: 16,
+                //                     fontWeight: FontWeight.bold,
+                //                     color: Colors.white,
+                //                   ),
+                //                   radius: 80,
+                //                 ),
 
-                                PieChartSectionData(
-                                  color: Colors.orange,
-                                  value:
-                                      controller
-                                          .sentimentDistribution
-                                          .value['neutral'] ??
-                                      0,
-                                  title:
-                                      '${(controller.sentimentDistribution.value['neutral'] ?? 0).toStringAsFixed(1)}%',
-                                  titleStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  radius: 80,
-                                ),
+                //                 PieChartSectionData(
+                //                   color: Colors.orange,
+                //                   value:
+                //                       controller
+                //                           .sentimentDistribution
+                //                           .value['neutral'] ??
+                //                       0,
+                //                   title:
+                //                       '${(controller.sentimentDistribution.value['neutral'] ?? 0).toStringAsFixed(1)}%',
+                //                   titleStyle: const TextStyle(
+                //                     fontSize: 16,
+                //                     fontWeight: FontWeight.bold,
+                //                     color: Colors.white,
+                //                   ),
+                //                   radius: 80,
+                //                 ),
 
-                                PieChartSectionData(
-                                  color: Colors.red,
-                                  value:
-                                      controller
-                                          .sentimentDistribution
-                                          .value['negative'] ??
-                                      0,
-                                  title:
-                                      '${(controller.sentimentDistribution.value['negative'] ?? 0).toStringAsFixed(1)}%',
-                                  titleStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  radius: 80,
-                                ),
-                              ],
-                              sectionsSpace: 0,
-                              centerSpaceRadius: 40,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
+                //                 PieChartSectionData(
+                //                   color: Colors.red,
+                //                   value:
+                //                       controller
+                //                           .sentimentDistribution
+                //                           .value['negative'] ??
+                //                       0,
+                //                   title:
+                //                       '${(controller.sentimentDistribution.value['negative'] ?? 0).toStringAsFixed(1)}%',
+                //                   titleStyle: const TextStyle(
+                //                     fontSize: 16,
+                //                     fontWeight: FontWeight.bold,
+                //                     color: Colors.white,
+                //                   ),
+                //                   radius: 80,
+                //                 ),
+                //               ],
+                //               sectionsSpace: 0,
+                //               centerSpaceRadius: 40,
+                //             ),
+                //           ),
+                //         ),
+                //         const SizedBox(height: 30),
 
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildLegendItem(
-                              theme,
-                              Colors.green,
-                              'Tích Cực',
-                              (controller
-                                          .sentimentDistribution
-                                          .value['positive'] ??
-                                      0)
-                                  .toStringAsFixed(1),
-                            ),
-                            _buildLegendItem(
-                              theme,
-                              Colors.orange,
-                              'Trung Tính',
-                              (controller
-                                          .sentimentDistribution
-                                          .value['neutral'] ??
-                                      0)
-                                  .toStringAsFixed(1),
-                            ),
-                            _buildLegendItem(
-                              theme,
-                              Colors.red,
-                              'Tiêu Cực',
-                              (controller
-                                          .sentimentDistribution
-                                          .value['negative'] ??
-                                      0)
-                                  .toStringAsFixed(1),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                //         Row(
+                //           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                //           children: [
+                //             _buildLegendItem(
+                //               theme,
+                //               Colors.green,
+                //               'Tích Cực',
+                //               (controller
+                //                           .sentimentDistribution
+                //                           .value['positive'] ??
+                //                       0)
+                //                   .toStringAsFixed(1),
+                //             ),
+                //             _buildLegendItem(
+                //               theme,
+                //               Colors.orange,
+                //               'Trung Tính',
+                //               (controller
+                //                           .sentimentDistribution
+                //                           .value['neutral'] ??
+                //                       0)
+                //                   .toStringAsFixed(1),
+                //             ),
+                //             _buildLegendItem(
+                //               theme,
+                //               Colors.red,
+                //               'Tiêu Cực',
+                //               (controller
+                //                           .sentimentDistribution
+                //                           .value['negative'] ??
+                //                       0)
+                //                   .toStringAsFixed(1),
+                //             ),
+                //           ],
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(height: 24),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -240,7 +226,7 @@ class AnalysisDetailScreen extends StatelessWidget {
 
                         _buildOverviewItem(
                           theme,
-                          'Trung bình Polarity',
+                          'Điểm cảm xúc',
                           _calculateAveragePolarityScore(
                             controller.analysisResults,
                           ),
@@ -278,8 +264,6 @@ class AnalysisDetailScreen extends StatelessWidget {
                   final negativePercent =
                       sentimentPercentages['negative_percent'];
 
-                  final polarityScore =
-                      result['polarity_score'] as double? ?? 0.0;
                   final sentimentStrength =
                       result['sentiment_strength'] as int? ?? 0;
 
@@ -448,7 +432,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                                   'Phân bố cảm xúc:',
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 16),
 
                                 if (result['sentiment'] == 'positive')
                                   _buildSentimentBar(
@@ -478,7 +462,7 @@ class AnalysisDetailScreen extends StatelessWidget {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),

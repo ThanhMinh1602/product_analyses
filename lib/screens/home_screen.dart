@@ -12,19 +12,7 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Product Lytics'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: () => Get.toNamed(AppRoutes.analysis),
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () => Get.toNamed(AppRoutes.history),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Product Lytics')),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -75,14 +63,7 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-            ListTile(
-              leading: Icon(Icons.analytics, color: theme.colorScheme.primary),
-              title: const Text('Phân tích đánh giá'),
-              onTap: () {
-                Get.back();
-                Get.toNamed(AppRoutes.analysis);
-              },
-            ),
+
             ListTile(
               leading: Icon(Icons.history, color: theme.colorScheme.primary),
               title: const Text('Lịch sử phân tích'),
@@ -97,7 +78,28 @@ class HomeScreen extends StatelessWidget {
               title: const Text('Đăng xuất'),
               onTap: () {
                 Get.back();
-                controller.logout();
+                Get.dialog(
+                  AlertDialog(
+                    title: const Text('Xác nhận'),
+                    content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Get.back(),
+                        child: const Text('Hủy'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Get.back();
+                          controller.logout();
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                        ),
+                        child: const Text('Đăng xuất'),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ],

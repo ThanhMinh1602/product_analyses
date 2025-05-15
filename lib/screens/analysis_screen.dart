@@ -80,67 +80,94 @@ class AnalysisScreen extends StatelessWidget {
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: TextField(
-                      controller: controller.reviewsController,
-                      maxLines: null,
-                      expands: true,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Nhập đánh giá ở đây...\nMỗi đánh giá một dòng',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    child: Obx(
+                      () => TextField(
+                        controller: controller.reviewsController,
+                        maxLines: null,
+                        expands: true,
+                        enabled: !controller.isLoading.value,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Nhập đánh giá ở đây...\nMỗi đánh giá một dòng',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor:
+                              controller.isLoading.value
+                                  ? theme.colorScheme.surface.withOpacity(0.7)
+                                  : theme.colorScheme.surface,
                         ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surface,
+                        style: theme.textTheme.bodyLarge,
                       ),
-                      style: theme.textTheme.bodyLarge,
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              Obx(
-                () => ElevatedButton.icon(
-                  onPressed:
-                      controller.isLoading.value
-                          ? null
-                          : () async {
-                            if (controller.reviewsController.text
-                                .trim()
-                                .isEmpty) {
-                              Get.snackbar(
-                                'Lỗi',
-                                'Vui lòng nhập ít nhất một đánh giá',
-                                snackPosition: SnackPosition.BOTTOM,
-                                backgroundColor: theme.colorScheme.error,
-                                colorText: theme.colorScheme.onError,
-                                margin: const EdgeInsets.all(16),
-                                borderRadius: 8,
-                              );
-                              return;
-                            }
-                            await controller.analyzeReviews();
-                          },
-                  icon:
-                      controller.isLoading.value
-                          ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          )
-                          : const Icon(Icons.analytics),
-                  label: Text(
-                    controller.isLoading.value
-                        ? 'Đang phân tích...'
-                        : 'Phân tích đánh giá',
+              Row(
+                children: [
+                  Expanded(
+                    child: Obx(
+                      () => ElevatedButton.icon(
+                        onPressed:
+                            controller.isLoading.value
+                                ? null
+                                : () async {
+                                  if (controller.reviewsController.text
+                                      .trim()
+                                      .isEmpty) {
+                                    Get.snackbar(
+                                      'Lỗi',
+                                      'Vui lòng nhập ít nhất một đánh giá',
+                                      snackPosition: SnackPosition.BOTTOM,
+                                      backgroundColor: theme.colorScheme.error,
+                                      colorText: theme.colorScheme.onError,
+                                      margin: const EdgeInsets.all(16),
+                                      borderRadius: 8,
+                                    );
+                                    return;
+                                  }
+                                  await controller.analyzeReviews();
+                                },
+                        icon:
+                            controller.isLoading.value
+                                ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: theme.colorScheme.onPrimary,
+                                  ),
+                                )
+                                : const Icon(Icons.analytics),
+                        label: Text(
+                          controller.isLoading.value
+                              ? 'Đang phân tích...'
+                              : 'Phân tích đánh giá',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  const SizedBox(width: 8),
+                  Obx(
+                    () => IconButton(
+                      onPressed:
+                          controller.isLoading.value
+                              ? null
+                              : () => controller.clearReviews(),
+                      icon: const Icon(Icons.clear),
+                      tooltip: 'Xóa đánh giá',
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surfaceVariant,
+                        foregroundColor: theme.colorScheme.primary,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

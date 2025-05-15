@@ -23,6 +23,7 @@ class AuthController extends GetxController {
 
   Future<void> login() async {
     try {
+      isLoading.value = true;
       await _auth.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -37,11 +38,14 @@ class AuthController extends GetxController {
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
+    } finally {
+      isLoading.value = false;
     }
   }
 
   Future<void> register() async {
     try {
+      isLoading.value = true;
       if (passwordController.text != confirmPasswordController.text) {
         Get.snackbar(
           'Lỗi',
@@ -50,6 +54,7 @@ class AuthController extends GetxController {
           backgroundColor: Colors.red.withOpacity(0.1),
           colorText: Colors.red,
         );
+        isLoading.value = false;
         return;
       }
 
@@ -73,6 +78,8 @@ class AuthController extends GetxController {
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
+    } finally {
+      isLoading.value = false;
     }
   }
 

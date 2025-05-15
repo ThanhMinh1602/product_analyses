@@ -93,13 +93,28 @@ class LoginScreen extends StatelessWidget {
                               },
                             ),
                             const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: () async {
-                                if (formKey.currentState!.validate()) {
-                                  await controller.login();
-                                }
-                              },
-                              child: const Text('Login'),
+                            Obx(
+                              () => ElevatedButton(
+                                onPressed:
+                                    controller.isLoading.value
+                                        ? null
+                                        : () async {
+                                          if (formKey.currentState!
+                                              .validate()) {
+                                            await controller.login();
+                                          }
+                                        },
+                                child:
+                                    controller.isLoading.value
+                                        ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                        : const Text('Login'),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             TextButton(

@@ -30,6 +30,11 @@ class AnalysisController extends GetxController {
   // Danh sách tất cả các khía cạnh sản phẩm được đề cập
   final allAspects = <String>[].obs;
 
+  // Hàm xóa nội dung đánh giá
+  void clearReviews() {
+    reviewsController.clear();
+  }
+
   // Hàm phân tích đánh giá người dùng
   Future<void> analyzeReviews() async {
     // Kiểm tra đầu vào
@@ -161,7 +166,7 @@ class AnalysisController extends GetxController {
 
       // Tạo yêu cầu phân tích với định hướng cụ thể
       final prompt = '''
-      Phân tích đánh giá sản phẩm bằng tiếng Việt sau đây và trả kết quả dưới dạng JSON. KHÔNG trả về bất kỳ nội dung khác ngoài JSON (không có dấu ``, markdown, hoặc text thừa).
+      Phân tích đánh giá sản phẩm bằng tiếng Việt sử dụng NLP, sau đây và trả kết quả dưới dạng JSON. KHÔNG trả về bất kỳ nội dung khác ngoài JSON (không có dấu ``, markdown, hoặc text thừa).
 
       1. comment: Nội dung bình luận gốc
       2. main_keywords: Danh sách các từ khóa chính được sử dụng để đánh giá (3-5 từ khóa chính)
