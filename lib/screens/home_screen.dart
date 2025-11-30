@@ -119,29 +119,38 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.analytics,
-                  size: 80,
-                  color: theme.colorScheme.primary,
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.analytics,
+                    size: 64,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 Text(
                   'Welcome to Product Lytics',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary,
+                    letterSpacing: -0.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(
                   'Analyze your product reviews with AI',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onBackground.withOpacity(0.7),
+                    letterSpacing: 0.2,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 56),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

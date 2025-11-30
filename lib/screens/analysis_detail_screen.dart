@@ -115,16 +115,24 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.analytics,
-                  size: 64,
-                  color: theme.colorScheme.primary.withOpacity(0.5),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.analytics,
+                    size: 48,
+                    color: theme.colorScheme.primary.withOpacity(0.6),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
                   'Không có kết quả phân tích nào',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: theme.colorScheme.onBackground.withOpacity(0.7),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -142,7 +150,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
           ),
           child: SingleChildScrollView(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -396,8 +404,12 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

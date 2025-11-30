@@ -47,14 +47,15 @@ class MultiTaskAnalysisScreen extends StatelessWidget {
         children: [
           // Input section
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 0,
                 ),
               ],
             ),
@@ -218,7 +219,7 @@ class MultiTaskAnalysisScreen extends StatelessWidget {
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 itemCount: controller.tasks.length,
                 itemBuilder: (context, index) {
                   final task = controller.tasks[index];
@@ -287,9 +288,9 @@ class _TaskCard extends StatelessWidget {
       }
 
       return Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.only(bottom: 16),
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: InkWell(
           onTap:
               status == 'completed' && task.analysisResults.isNotEmpty
@@ -305,9 +306,9 @@ class _TaskCard extends StatelessWidget {
                     Get.toNamed(AppRoutes.analysisDetail);
                   }
                   : null,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

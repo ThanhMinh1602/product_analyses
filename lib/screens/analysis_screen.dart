@@ -78,8 +78,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         children: [
           // Tiki Link Section
           Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -155,7 +159,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               hintText: 'https://tiki.vn/...',
                               prefixIcon: const Icon(Icons.link),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               filled: true,
                               fillColor:
@@ -230,8 +234,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           const SizedBox(height: 24),
           // Manual Input Section
           Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -277,7 +285,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       hintText:
                           'Nhập đánh giá ở đây...\nMỗi đánh giá một dòng\n\nHoặc lấy từ Tiki ở trên',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
                       fillColor:

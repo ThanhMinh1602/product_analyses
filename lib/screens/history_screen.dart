@@ -47,29 +47,52 @@ class HistoryScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.history,
-                    size: 64,
-                    color: theme.colorScheme.primary.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Chưa có lịch sử phân tích',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Hãy phân tích đánh giá sản phẩm để xem kết quả tại đây',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onBackground.withOpacity(0.7),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(
+                        0.3,
+                      ),
+                      shape: BoxShape.circle,
                     ),
-                    textAlign: TextAlign.center,
+                    child: Icon(
+                      Icons.history,
+                      size: 48,
+                      color: theme.colorScheme.primary.withOpacity(0.6),
+                    ),
                   ),
                   const SizedBox(height: 24),
+                  Text(
+                    'Chưa có lịch sử phân tích',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      'Hãy phân tích đánh giá sản phẩm để xem kết quả tại đây',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                   ElevatedButton.icon(
                     onPressed: () => Get.toNamed(AppRoutes.analysis),
                     icon: const Icon(Icons.analytics),
                     label: const Text('Bắt đầu phân tích'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -77,7 +100,7 @@ class HistoryScreen extends StatelessWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(20),
             itemCount: analyses.length,
             itemBuilder: (context, index) {
               final analysis = analyses[index];
@@ -113,6 +136,9 @@ class HistoryScreen extends StatelessWidget {
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: InkWell(
                   onTap: () {
                     // Tải kết quả phân tích này vào controller
@@ -129,31 +155,37 @@ class HistoryScreen extends StatelessWidget {
                     // Chuyển đến màn hình chi tiết
                     Get.toNamed(AppRoutes.analysisDetail);
                   },
+                  borderRadius: BorderRadius.circular(16),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              formattedDate,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                formattedDate,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                horizontal: 12,
+                                vertical: 6,
                               ),
                               decoration: BoxDecoration(
                                 color: sentimentColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: sentimentColor,
-                                  width: 1,
+                                  width: 1.5,
                                 ),
                               ),
                               child: Text(
@@ -161,6 +193,7 @@ class HistoryScreen extends StatelessWidget {
                                 style: TextStyle(
                                   color: sentimentColor,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
@@ -179,64 +212,53 @@ class HistoryScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: positivePercent.round(),
-                              child: Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(4),
-                                    bottomLeft: Radius.circular(4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            height: 10,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                if (positivePercent > 0)
+                                  Expanded(
+                                    flex: (positivePercent * 100).round(),
+                                    child: Container(color: Colors.green),
                                   ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: neutralPercent.round(),
-                              child: Container(height: 8, color: Colors.orange),
-                            ),
-                            Expanded(
-                              flex: negativePercent.round(),
-                              child: Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.only(
-                                    topRight: Radius.circular(4),
-                                    bottomRight: Radius.circular(4),
+                                if (neutralPercent > 0)
+                                  Expanded(
+                                    flex: (neutralPercent * 100).round(),
+                                    child: Container(color: Colors.orange),
                                   ),
-                                ),
-                              ),
+                                if (negativePercent > 0)
+                                  Expanded(
+                                    flex: (negativePercent * 100).round(),
+                                    child: Container(color: Colors.red),
+                                  ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
                           children: [
-                            Text(
-                              'Tích cực: $positivePercent%',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            _buildSentimentChip(
+                              'Tích cực',
+                              positivePercent,
+                              Colors.green,
                             ),
-                            Text(
-                              'Trung tính: $neutralPercent%',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            _buildSentimentChip(
+                              'Trung tính',
+                              neutralPercent,
+                              Colors.orange,
                             ),
-                            Text(
-                              'Tiêu cực: $negativePercent%',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            _buildSentimentChip(
+                              'Tiêu cực',
+                              negativePercent,
+                              Colors.red,
                             ),
                           ],
                         ),
@@ -249,6 +271,28 @@ class HistoryScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildSentimentChip(String label, double percent, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ${percent.toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 }
