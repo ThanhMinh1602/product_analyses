@@ -34,7 +34,7 @@ class AuthController extends GetxController {
       Get.snackbar(
         'Lỗi',
         e.message ?? 'Đã xảy ra lỗi trong quá trình đăng nhập',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -50,7 +50,7 @@ class AuthController extends GetxController {
         Get.snackbar(
           'Lỗi',
           'Mật khẩu không khớp',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.red.withOpacity(0.1),
           colorText: Colors.red,
         );
@@ -73,7 +73,7 @@ class AuthController extends GetxController {
       Get.snackbar(
         'Lỗi',
         e.message ?? 'Đã xảy ra lỗi trong quá trình đăng ký',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -91,7 +91,7 @@ class AuthController extends GetxController {
       Get.snackbar(
         'Lỗi',
         'Đã xảy ra lỗi trong quá trình đăng xuất',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );

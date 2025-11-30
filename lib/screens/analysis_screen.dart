@@ -47,7 +47,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               Get.snackbar(
                 'Hướng dẫn',
                 'Bạn có thể nhập đánh giá thủ công hoặc lấy từ link Tiki. Nhập mỗi đánh giá trên một dòng riêng biệt.',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
                 backgroundColor: theme.colorScheme.surface,
                 colorText: theme.colorScheme.onSurface,
                 margin: const EdgeInsets.all(16),

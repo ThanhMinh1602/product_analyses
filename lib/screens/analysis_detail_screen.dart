@@ -59,7 +59,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
               Get.snackbar(
                 'Thông báo',
                 'Tính năng chia sẻ đang được phát triển',
-                snackPosition: SnackPosition.BOTTOM,
+                snackPosition: SnackPosition.TOP,
                 backgroundColor: theme.colorScheme.surface,
                 colorText: theme.colorScheme.onSurface,
                 margin: const EdgeInsets.all(16),

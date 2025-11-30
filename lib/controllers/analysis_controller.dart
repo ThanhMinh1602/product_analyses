@@ -6,6 +6,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'dart:convert';
 import 'package:product_lytics/routes/app_routes.dart';
 import 'package:product_lytics/services/tiki_service.dart';
+import 'package:product_lytics/services/notification_service.dart';
 
 class AnalysisController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -44,7 +45,7 @@ class AnalysisController extends GetxController {
       Get.snackbar(
         'Lỗi',
         'Vui lòng nhập link sản phẩm Tiki',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -55,7 +56,7 @@ class AnalysisController extends GetxController {
       Get.snackbar(
         'Lỗi',
         'Link không hợp lệ. Vui lòng nhập link sản phẩm Tiki đúng định dạng',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -78,7 +79,7 @@ class AnalysisController extends GetxController {
         Get.snackbar(
           'Thông báo',
           'Không tìm thấy đánh giá nào cho sản phẩm này',
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.orange.withOpacity(0.1),
           colorText: Colors.orange,
         );
@@ -91,7 +92,7 @@ class AnalysisController extends GetxController {
       Get.snackbar(
         'Thành công',
         'Đã lấy ${reviews.length} đánh giá từ Tiki',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green.withOpacity(0.1),
         colorText: Colors.green,
       );
@@ -99,7 +100,7 @@ class AnalysisController extends GetxController {
       Get.snackbar(
         'Lỗi',
         'Không thể lấy đánh giá từ Tiki: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -114,7 +115,7 @@ class AnalysisController extends GetxController {
       Get.snackbar(
         'Lỗi',
         'Vui lòng nhập đánh giá để phân tích',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );
@@ -155,12 +156,20 @@ class AnalysisController extends GetxController {
       // Save to Firebase after all reviews are analyzed
       await saveAnalysisToFirebase();
 
+      // Show notification when analysis is complete
+      await NotificationService().showNotification(
+        id: 1,
+        title: 'Phân tích hoàn tất',
+        body: 'Đã phân tích ${reviews.length} đánh giá thành công!',
+        payload: 'analysis_complete',
+      );
+
       reviewsController.clear();
     } catch (e) {
       Get.snackbar(
         'Lỗi',
         'Đã xảy ra lỗi trong quá trình phân tích: $e',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
       );

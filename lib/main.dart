@@ -7,10 +7,12 @@ import 'package:product_lytics/routes/app_pages.dart';
 import 'package:product_lytics/routes/app_routes.dart';
 import 'package:product_lytics/theme/app_theme.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:product_lytics/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService().initialize();
   runApp(const MyApp());
 }
 
