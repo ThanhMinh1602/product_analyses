@@ -5,14 +5,19 @@ import 'package:get/get.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'dart:convert';
 import 'package:product_lytics/routes/app_routes.dart';
+import 'package:product_lytics/services/tiki_service.dart';
 
 class AnalysisController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final reviewsController = TextEditingController();
+  final tikiUrlController = TextEditingController();
   final isLoading = false.obs;
+  final isFetchingReviews = false.obs;
   final analysisResults = <Map<String, dynamic>>[].obs;
+  final productName = RxString('');
+  final totalReviewsToAnalyze = 0.obs; // Total number of reviews to analyze
 
   final sentimentDistribution = Rx<Map<String, double>>({
     'positive': 0.0,
@@ -27,6 +32,80 @@ class AnalysisController extends GetxController {
   /// Xóa nội dung trong reviewsController.
   void clearReviews() {
     reviewsController.clear();
+    tikiUrlController.clear();
+    productName.value = '';
+  }
+
+  /// Lấy reviews từ link Tiki và điền vào reviewsController
+  Future<void> fetchReviewsFromTiki() async {
+    final url = tikiUrlController.text.trim();
+
+    if (url.isEmpty) {
+      Get.snackbar(
+        'Lỗi',
+        'Vui lòng nhập link sản phẩm Tiki',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+      return;
+    }
+
+    if (!TikiService.isValidTikiUrl(url)) {
+      Get.snackbar(
+        'Lỗi',
+        'Link không hợp lệ. Vui lòng nhập link sản phẩm Tiki đúng định dạng',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+      return;
+    }
+
+    try {
+      isFetchingReviews.value = true;
+
+      // Get product name
+      final name = await TikiService.getProductName(url);
+      if (name != null) {
+        productName.value = name;
+      }
+
+      // Fetch reviews
+      final reviews = await TikiService.fetchReviewsFromTiki(url);
+
+      if (reviews.isEmpty) {
+        Get.snackbar(
+          'Thông báo',
+          'Không tìm thấy đánh giá nào cho sản phẩm này',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange.withOpacity(0.1),
+          colorText: Colors.orange,
+        );
+        return;
+      }
+
+      // Fill reviews into controller
+      reviewsController.text = reviews.join('\n');
+
+      Get.snackbar(
+        'Thành công',
+        'Đã lấy ${reviews.length} đánh giá từ Tiki',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.withOpacity(0.1),
+        colorText: Colors.green,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Lỗi',
+        'Không thể lấy đánh giá từ Tiki: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+    } finally {
+      isFetchingReviews.value = false;
+    }
   }
 
   /// Phân tích các đánh giá từ reviewsController, cập nhật kết quả, lưu vào Firebase và chuyển sang màn hình chi tiết.
@@ -51,23 +130,32 @@ class AnalysisController extends GetxController {
               .where((review) => review.trim().isNotEmpty)
               .toList();
 
+      // Clear previous results
       analysisResults.clear();
       aspectDistribution.value = {};
       allAspects.clear();
+      totalReviewsToAnalyze.value = reviews.length;
 
-      for (final review in reviews) {
+      // Navigate to results screen immediately
+      Get.toNamed(AppRoutes.analysisDetail);
+
+      // Analyze reviews one by one and update results in real-time
+      for (int i = 0; i < reviews.length; i++) {
+        final review = reviews[i];
         final result = await _analyzeReviewNLP(review);
+
+        // Add result immediately - UI will update automatically via Obx
         analysisResults.add(result);
+
+        // Update distributions after each review
+        updateSentimentDistribution();
+        updateAspectDistribution();
       }
 
-      updateSentimentDistribution();
-
-      updateAspectDistribution();
-
+      // Save to Firebase after all reviews are analyzed
       await saveAnalysisToFirebase();
 
       reviewsController.clear();
-      Get.toNamed(AppRoutes.analysisDetail);
     } catch (e) {
       Get.snackbar(
         'Lỗi',
@@ -142,8 +230,8 @@ class AnalysisController extends GetxController {
   Future<Map<String, dynamic>> _analyzeReviewNLP(String review) async {
     try {
       final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: 'AIzaSyAVbVnn7Xr0UbmSrPwCVmMb-mwvO4r_2xU',
+        model: 'gemini-2.0-flash-lite',
+        apiKey: 'AIzaSyAJMiI18Oz0Si3E3Yas0mE43Q_V-W3-z7w',
       );
 
       final prompt = '''
@@ -312,6 +400,7 @@ class AnalysisController extends GetxController {
   @override
   void onClose() {
     reviewsController.dispose();
+    tikiUrlController.dispose();
     super.onClose();
   }
 }

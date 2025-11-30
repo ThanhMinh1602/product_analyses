@@ -6,6 +6,7 @@ import 'package:product_lytics/firebase_options.dart';
 import 'package:product_lytics/routes/app_pages.dart';
 import 'package:product_lytics/routes/app_routes.dart';
 import 'package:product_lytics/theme/app_theme.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
       initialRoute: AppRoutes.splash,
       getPages: AppPages.routes,
       debugShowCheckedModeBanner: false,
+      builder: EasyLoading.init(),
     );
   }
 }

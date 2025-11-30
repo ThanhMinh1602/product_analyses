@@ -21,11 +21,7 @@ class AppTheme {
         backgroundColor: Colors.white,
         foregroundColor: Color(0xFF2196F3),
       ),
-      cardTheme: CardTheme(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white,
-      ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
@@ -74,11 +70,6 @@ class AppTheme {
         elevation: 0,
         backgroundColor: Color(0xFF1E1E1E),
         foregroundColor: Colors.white,
-      ),
-      cardTheme: CardTheme(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: const Color(0xFF1E1E1E),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

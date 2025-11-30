@@ -3,8 +3,47 @@ import 'package:get/get.dart';
 import 'package:product_lytics/controllers/analysis_controller.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-class AnalysisDetailScreen extends StatelessWidget {
+class AnalysisDetailScreen extends StatefulWidget {
   const AnalysisDetailScreen({super.key});
+
+  @override
+  State<AnalysisDetailScreen> createState() => _AnalysisDetailScreenState();
+}
+
+class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
+  final ScrollController _scrollController = ScrollController();
+  int _lastResultCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final controller = Get.find<AnalysisController>();
+    _lastResultCount = controller.analysisResults.length;
+
+    // Listen to analysisResults changes and auto-scroll
+    ever(controller.analysisResults, (results) {
+      if (results.length > _lastResultCount) {
+        // New result added, scroll to bottom after frame is built
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients &&
+              _scrollController.position.maxScrollExtent > 0) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+        _lastResultCount = results.length;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +71,45 @@ class AnalysisDetailScreen extends StatelessWidget {
       ),
 
       body: Obx(() {
+        // Show loading state if analyzing
+        if (controller.isLoading.value && controller.analysisResults.isEmpty) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  theme.colorScheme.background,
+                  theme.colorScheme.surface,
+                ],
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: theme.colorScheme.primary),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Đang phân tích đánh giá...',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.onBackground,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Vui lòng đợi trong giây lát',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onBackground.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Show empty state if no results and not loading
         if (controller.analysisResults.isEmpty) {
           return Center(
             child: Column(
@@ -63,6 +141,7 @@ class AnalysisDetailScreen extends StatelessWidget {
             ),
           ),
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +329,43 @@ class AnalysisDetailScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-
+                // Show analyzing indicator if still loading
+                if (controller.isLoading.value)
+                  Obx(
+                    () => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Card(
+                        color: theme.colorScheme.primaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  controller.totalReviewsToAnalyze.value > 0
+                                      ? 'Đang phân tích ${controller.analysisResults.length}/${controller.totalReviewsToAnalyze.value} đánh giá...'
+                                      : 'Đang phân tích đánh giá...',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ...controller.analysisResults.asMap().entries.map((entry) {
                   final index = entry.key;
                   final result = entry.value;
