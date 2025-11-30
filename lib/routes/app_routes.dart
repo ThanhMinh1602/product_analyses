@@ -7,4 +7,5 @@ class AppRoutes {
   static const String analysisDetail = '/analysis-detail';
   static const String multiTaskAnalysis = '/multi-task-analysis';
   static const String history = '/history';
+  static const String apiKeyManagement = '/api-key-management';
 }

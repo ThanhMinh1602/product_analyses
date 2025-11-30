@@ -11,6 +11,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:product_lytics/routes/app_routes.dart';
 import 'package:product_lytics/services/tiki_service.dart';
 import 'package:product_lytics/services/notification_service.dart';
+import 'package:product_lytics/services/api_key_service.dart';
 import 'package:product_lytics/models/analysis_task.dart';
 
 /// -------------------------
@@ -100,9 +101,15 @@ Map<String, dynamic> parseAnalysisResponse(List<dynamic> arguments) {
 class AnalysisController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ApiKeyService _apiKeyService = ApiKeyService();
 
-  // Model Gemini dùng chung
-  late final GenerativeModel _geminiModel;
+  // Cache API key để tránh query Firestore mỗi lần
+  String? _cachedApiKey;
+  DateTime? _apiKeyCacheTime;
+
+  // Model Gemini dùng chung (sẽ được khởi tạo với API key từ Firestore)
+  GenerativeModel? _geminiModel;
+  bool _isModelInitialized = false;
 
   // Legacy fields
   final reviewsController = TextEditingController();
@@ -341,6 +348,11 @@ class AnalysisController extends GetxController {
 
   /// Gọi Gemini để phân tích một review (dùng model dùng chung)
   Future<Map<String, dynamic>> _analyzeReviewGemini(String review) async {
+    // Đảm bảo model đã được khởi tạo
+    if (!_isModelInitialized || _geminiModel == null) {
+      await _initializeGeminiModel();
+    }
+
     try {
       final prompt = '''
 Bạn là chuyên gia phân tích sentiment cho đánh giá sản phẩm. Phân tích đánh giá sau và trả về KẾT QUẢ DƯỚI DẠNG JSON THUẦN (không có markdown, không có dấu backtick, không có text giải thích).
@@ -366,27 +378,54 @@ CHỈ trả về JSON, không có gì khác.
 
       final content = [Content.text(prompt)];
 
-      final response = await _geminiModel
-          .generateContent(content)
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              throw TimeoutException('API call timeout');
-            },
-          );
+      try {
+        final response = await _geminiModel!
+            .generateContent(content)
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw TimeoutException('API call timeout');
+              },
+            );
 
-      final rawResponse = response.text ?? '';
-      debugPrint('Raw response from Gemini: $rawResponse');
-      debugPrint('Review being analyzed: $review');
+        final rawResponse = response.text ?? '';
+        debugPrint('Raw response from Gemini: $rawResponse');
+        debugPrint('Review being analyzed: $review');
 
-      final result = await compute(parseAnalysisResponse, [
-        rawResponse,
-        review,
-      ]);
-      debugPrint(
-        'Parsed result - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
-      );
-      return result;
+        // Update usage count
+        final currentApiKey = await _getApiKey();
+        final keyId = await _apiKeyService.findKeyIdByValue(currentApiKey);
+        if (keyId != null) {
+          _apiKeyService.updateUsageCount(keyId);
+        }
+
+        final result = await compute(parseAnalysisResponse, [
+          rawResponse,
+          review,
+        ]);
+        debugPrint(
+          'Parsed result - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
+        );
+        return result;
+      } catch (e) {
+        // Handle API errors (rate limit, invalid key, etc.)
+        final errorMessage = e.toString();
+        debugPrint('API Error: $errorMessage');
+
+        // Check if it's a rate limit or quota error
+        if (errorMessage.toLowerCase().contains('rate limit') ||
+            errorMessage.toLowerCase().contains('quota') ||
+            errorMessage.toLowerCase().contains('429')) {
+          final currentApiKey = await _getApiKey();
+          await _handleApiKeyError(currentApiKey, errorMessage);
+
+          // Retry with new key if available
+          await _initializeGeminiModel();
+          return _analyzeReviewGemini(review);
+        }
+
+        rethrow;
+      }
     } catch (e) {
       debugPrint('Error analyzing review with Gemini: $e');
       return _defaultAnalysisResult(review);
@@ -669,6 +708,11 @@ CHỈ trả về JSON, không có gì khác.
     String taskId,
   ) async {
     try {
+      // Đảm bảo model đã được khởi tạo
+      if (_geminiModel == null) {
+        await _initializeGeminiModel();
+      }
+
       final prompt = '''
 Bạn là chuyên gia phân tích sentiment cho đánh giá sản phẩm. Phân tích đánh giá sau và trả về KẾT QUẢ DƯỚI DẠNG JSON THUẦN (không có markdown, không có dấu backtick, không có text giải thích).
 
@@ -693,29 +737,56 @@ CHỈ trả về JSON, không có gì khác.
 
       final content = [Content.text(prompt)];
 
-      final response = await _geminiModel
-          .generateContent(content)
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              throw TimeoutException('API call timeout for task $taskId');
-            },
-          );
+      try {
+        final response = await _geminiModel!
+            .generateContent(content)
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw TimeoutException('API call timeout for task $taskId');
+              },
+            );
 
-      final rawResponse = response.text ?? '';
-      debugPrint('Raw response from Gemini (task $taskId): $rawResponse');
-      debugPrint('Review being analyzed (task $taskId): $review');
+        final rawResponse = response.text ?? '';
+        debugPrint('Raw response from Gemini (task $taskId): $rawResponse');
+        debugPrint('Review being analyzed (task $taskId): $review');
 
-      final result = await compute(parseAnalysisResponse, [
-        rawResponse,
-        review,
-      ]);
+        // Update usage count
+        final currentApiKey = await _getApiKey();
+        final keyId = await _apiKeyService.findKeyIdByValue(currentApiKey);
+        if (keyId != null) {
+          _apiKeyService.updateUsageCount(keyId);
+        }
 
-      debugPrint(
-        'Parsed result (task $taskId) - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
-      );
+        final result = await compute(parseAnalysisResponse, [
+          rawResponse,
+          review,
+        ]);
 
-      return result;
+        debugPrint(
+          'Parsed result (task $taskId) - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
+        );
+
+        return result;
+      } catch (e) {
+        // Handle API errors (rate limit, invalid key, etc.)
+        final errorMessage = e.toString();
+        debugPrint('API Error for task $taskId: $errorMessage');
+
+        // Check if it's a rate limit or quota error
+        if (errorMessage.toLowerCase().contains('rate limit') ||
+            errorMessage.toLowerCase().contains('quota') ||
+            errorMessage.toLowerCase().contains('429')) {
+          final currentApiKey = await _getApiKey();
+          await _handleApiKeyError(currentApiKey, errorMessage);
+
+          // Retry with new key if available
+          await _initializeGeminiModel();
+          return _analyzeReviewWithCompute(review, taskId);
+        }
+
+        rethrow;
+      }
     } catch (e) {
       debugPrint('Error _analyzeReviewWithCompute (task $taskId): $e');
       return _defaultAnalysisResult(review);
@@ -794,17 +865,77 @@ CHỈ trả về JSON, không có gì khác.
     tasks.clear();
   }
 
+  /// Lấy API key từ Firestore (với cache)
+  Future<String> _getApiKey() async {
+    // Cache trong 5 phút
+    if (_cachedApiKey != null &&
+        _apiKeyCacheTime != null &&
+        DateTime.now().difference(_apiKeyCacheTime!).inMinutes < 5) {
+      return _cachedApiKey!;
+    }
+
+    try {
+      final apiKey = await _apiKeyService.getActiveApiKey();
+      _cachedApiKey = apiKey;
+      _apiKeyCacheTime = DateTime.now();
+      return apiKey;
+    } catch (e) {
+      debugPrint('Error getting API key, using default: $e');
+      return 'AIzaSyAJMiI18Oz0Si3E3Yas0mE43Q_V-W3-z7w';
+    }
+  }
+
+  /// Xử lý lỗi API key (rate limit, invalid, etc.)
+  Future<void> _handleApiKeyError(String apiKey, String error) async {
+    try {
+      final keyId = await _apiKeyService.findKeyIdByValue(apiKey);
+      if (keyId != null) {
+        final isRateLimit =
+            error.toLowerCase().contains('rate limit') ||
+            error.toLowerCase().contains('quota') ||
+            error.toLowerCase().contains('429');
+
+        await _apiKeyService.markApiKeyAsInvalid(
+          keyId,
+          rateLimitExceeded: isRateLimit,
+        );
+
+        // Clear cache để lấy key mới
+        _cachedApiKey = null;
+        _apiKeyCacheTime = null;
+      }
+    } catch (e) {
+      debugPrint('Error handling API key error: $e');
+    }
+  }
+
+  /// Khởi tạo Gemini model với API key từ Firestore
+  Future<void> _initializeGeminiModel() async {
+    try {
+      final apiKey = await _getApiKey();
+      _geminiModel = GenerativeModel(
+        model: 'gemini-2.0-flash-lite',
+        apiKey: apiKey,
+      );
+      _isModelInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing Gemini model: $e');
+      // Fallback to default key
+      _geminiModel = GenerativeModel(
+        model: 'gemini-2.0-flash-lite',
+        apiKey: 'AIzaSyAJMiI18Oz0Si3E3Yas0mE43Q_V-W3-z7w',
+      );
+      _isModelInitialized = true;
+    }
+  }
+
   /// onInit
   @override
   void onInit() {
     super.onInit();
 
-    // Khởi tạo Gemini model dùng chung
-    _geminiModel = GenerativeModel(
-      model: 'gemini-2.0-flash-lite', // hoặc 'gemini-1.5-flash' tùy project
-      apiKey:
-          'AIzaSyBDpBN3hkC5OFwKFWTKVYWyFrSv5l5lUcM', // TODO: Lấy từ env/remote config
-    );
+    // Initialize Gemini model with API key from Firestore
+    _initializeGeminiModel();
 
     urlInputController.addListener(() {
       urlInputText.value = urlInputController.text;

@@ -72,6 +72,14 @@ class HomeScreen extends StatelessWidget {
                 Get.toNamed(AppRoutes.history);
               },
             ),
+            ListTile(
+              leading: Icon(Icons.vpn_key, color: theme.colorScheme.primary),
+              title: const Text('Quản lý API Keys'),
+              onTap: () {
+                Get.back();
+                Get.toNamed(AppRoutes.apiKeyManagement);
+              },
+            ),
             const Divider(),
             ListTile(
               leading: Icon(Icons.logout, color: theme.colorScheme.error),

@@ -8,6 +8,7 @@ import 'package:product_lytics/screens/analysis_screen.dart';
 import 'package:product_lytics/screens/analysis_detail_screen.dart';
 import 'package:product_lytics/screens/history_screen.dart';
 import 'package:product_lytics/screens/multi_task_analysis_screen.dart';
+import 'package:product_lytics/screens/api_key_management_screen.dart';
 
 class AppPages {
   static final routes = [
@@ -56,6 +57,12 @@ class AppPages {
     GetPage(
       name: AppRoutes.history,
       page: () => const HistoryScreen(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
+    ),
+    GetPage(
+      name: AppRoutes.apiKeyManagement,
+      page: () => const ApiKeyManagementScreen(),
       transition: Transition.rightToLeft,
       transitionDuration: const Duration(milliseconds: 300),
     ),
