@@ -370,14 +370,26 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                   final index = entry.key;
                   final result = entry.value;
 
+                  // Safely get sentiment_percentages with null check
+                  final sentimentPercentagesRaw =
+                      result['sentiment_percentages'];
                   final sentimentPercentages =
-                      result['sentiment_percentages'] as Map<String, dynamic>;
+                      sentimentPercentagesRaw != null
+                          ? Map<String, dynamic>.from(
+                            sentimentPercentagesRaw as Map,
+                          )
+                          : <String, double>{
+                            'positive_percent': 33.3,
+                            'neutral_percent': 33.4,
+                            'negative_percent': 33.3,
+                          };
+
                   final positivePercent =
-                      sentimentPercentages['positive_percent'];
+                      sentimentPercentages['positive_percent'] ?? 0.0;
                   final neutralPercent =
-                      sentimentPercentages['neutral_percent'];
+                      sentimentPercentages['neutral_percent'] ?? 0.0;
                   final negativePercent =
-                      sentimentPercentages['negative_percent'];
+                      sentimentPercentages['negative_percent'] ?? 0.0;
 
                   final sentimentStrength =
                       result['sentiment_strength'] as int? ?? 0;

@@ -1,24 +1,117 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'dart:convert';
+
 import 'package:product_lytics/routes/app_routes.dart';
 import 'package:product_lytics/services/tiki_service.dart';
 import 'package:product_lytics/services/notification_service.dart';
+import 'package:product_lytics/models/analysis_task.dart';
+
+/// -------------------------
+/// TOP-LEVEL HELPERS
+/// -------------------------
+
+/// Hàm clean JSON text do Gemini trả về (xóa ```json, ``` và khoảng trắng thừa)
+String _cleanJson(String raw) {
+  if (raw.isEmpty) return raw;
+  return raw.replaceAll('```json', '').replaceAll('```', '').trim();
+}
+
+/// Kết quả default khi parse/AI lỗi
+Map<String, dynamic> _defaultAnalysisResult(String review) {
+  return {
+    'comment': review,
+    'review': review,
+    'main_keywords': <String>[],
+    'sentiment': 'neutral',
+    'polarity_score': 0.0,
+    'sentiment_strength': 0,
+    'sentiment_percentages': {
+      'positive_percent': 33.3,
+      'neutral_percent': 33.4,
+      'negative_percent': 33.3,
+    },
+  };
+}
+
+/// Hàm parse JSON chạy trong isolate (dùng cho compute)
+/// arguments[0] = rawResponse, arguments[1] = review gốc
+Map<String, dynamic> parseAnalysisResponse(List<dynamic> arguments) {
+  final rawResponse =
+      (arguments.isNotEmpty ? (arguments[0] ?? '') : '') as String;
+  final review = (arguments.length > 1 ? (arguments[1] ?? '') : '') as String;
+
+  if (rawResponse.trim().isEmpty) {
+    return _defaultAnalysisResult(review);
+  }
+
+  try {
+    final cleaned = _cleanJson(rawResponse);
+    final decoded = json.decode(cleaned);
+
+    if (decoded is! Map<String, dynamic>) {
+      return _defaultAnalysisResult(review);
+    }
+
+    final result = Map<String, dynamic>.from(decoded);
+
+    // Đảm bảo luôn có các field cần thiết
+    result['comment'] ??= review;
+    result['review'] ??= review;
+    result['main_keywords'] ??= <String>[];
+
+    // Validate sentiment
+    final sentiment = result['sentiment'];
+    if (sentiment != 'positive' &&
+        sentiment != 'negative' &&
+        sentiment != 'neutral') {
+      result['sentiment'] = 'neutral';
+    }
+
+    // Validate polarity_score
+    final polarity = result['polarity_score'];
+    if (polarity is! num) {
+      result['polarity_score'] = 0.0;
+    }
+
+    // Validate sentiment_strength
+    final strength = result['sentiment_strength'];
+    if (strength is! num) {
+      result['sentiment_strength'] = 0;
+    }
+
+    return result;
+  } catch (e) {
+    // Nếu parse lỗi → trả default
+    return _defaultAnalysisResult(review);
+  }
+}
+
+/// -------------------------
+/// CONTROLLER
+/// -------------------------
 
 class AnalysisController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Model Gemini dùng chung
+  late final GenerativeModel _geminiModel;
+
+  // Legacy fields
   final reviewsController = TextEditingController();
   final tikiUrlController = TextEditingController();
   final isLoading = false.obs;
   final isFetchingReviews = false.obs;
   final analysisResults = <Map<String, dynamic>>[].obs;
   final productName = RxString('');
-  final totalReviewsToAnalyze = 0.obs; // Total number of reviews to analyze
+  final totalReviewsToAnalyze = 0.obs;
 
   final sentimentDistribution = Rx<Map<String, double>>({
     'positive': 0.0,
@@ -27,10 +120,17 @@ class AnalysisController extends GetxController {
   });
 
   final aspectDistribution = Rx<Map<String, int>>({});
-
   final allAspects = <String>[].obs;
 
-  /// Xóa nội dung trong reviewsController.
+  // New fields for multi-task processing
+  final tasks = <AnalysisTask>[].obs;
+  final urlInputController = TextEditingController();
+  final urlInputText = ''.obs;
+
+  // Dynamic URL input fields
+  final urlInputs = <TextEditingController>[].obs;
+
+  /// Xóa nội dung input review & url
   void clearReviews() {
     reviewsController.clear();
     tikiUrlController.clear();
@@ -66,13 +166,11 @@ class AnalysisController extends GetxController {
     try {
       isFetchingReviews.value = true;
 
-      // Get product name
       final name = await TikiService.getProductName(url);
       if (name != null) {
         productName.value = name;
       }
 
-      // Fetch reviews
       final reviews = await TikiService.fetchReviewsFromTiki(url);
 
       if (reviews.isEmpty) {
@@ -86,7 +184,6 @@ class AnalysisController extends GetxController {
         return;
       }
 
-      // Fill reviews into controller
       reviewsController.text = reviews.join('\n');
 
       Get.snackbar(
@@ -109,7 +206,7 @@ class AnalysisController extends GetxController {
     }
   }
 
-  /// Phân tích các đánh giá từ reviewsController, cập nhật kết quả, lưu vào Firebase và chuyển sang màn hình chi tiết.
+  /// Phân tích các đánh giá từ reviewsController (single-task)
   Future<void> analyzeReviews() async {
     if (reviewsController.text.trim().isEmpty) {
       Get.snackbar(
@@ -131,32 +228,39 @@ class AnalysisController extends GetxController {
               .where((review) => review.trim().isNotEmpty)
               .toList();
 
-      // Clear previous results
       analysisResults.clear();
       aspectDistribution.value = {};
       allAspects.clear();
       totalReviewsToAnalyze.value = reviews.length;
 
-      // Navigate to results screen immediately
+      // Điều hướng sang màn hình kết quả trước để UI update real-time
       Get.toNamed(AppRoutes.analysisDetail);
 
-      // Analyze reviews one by one and update results in real-time
-      for (int i = 0; i < reviews.length; i++) {
-        final review = reviews[i];
-        final result = await _analyzeReviewNLP(review);
+      // Batch size nhỏ + dùng chung model để tránh spam API
+      const batchSize = 4;
 
-        // Add result immediately - UI will update automatically via Obx
-        analysisResults.add(result);
+      for (int i = 0; i < reviews.length; i += batchSize) {
+        final batch = reviews.skip(i).take(batchSize).toList();
 
-        // Update distributions after each review
+        final batchResults = await Future.wait(
+          batch.map((review) => _analyzeReviewGemini(review)),
+        );
+
+        for (final result in batchResults) {
+          analysisResults.add(result);
+        }
+
         updateSentimentDistribution();
         updateAspectDistribution();
+
+        // Thêm một chút delay để tránh rate-limit nếu nhiều review
+        if (i + batchSize < reviews.length) {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
       }
 
-      // Save to Firebase after all reviews are analyzed
       await saveAnalysisToFirebase();
 
-      // Show notification when analysis is complete
       await NotificationService().showNotification(
         id: 1,
         title: 'Phân tích hoàn tất',
@@ -178,7 +282,7 @@ class AnalysisController extends GetxController {
     }
   }
 
-  /// Cập nhật phân phối cảm xúc dựa trên kết quả phân tích hiện tại.
+  /// Cập nhật phân phối sentiment
   void updateSentimentDistribution() {
     if (analysisResults.isEmpty) {
       sentimentDistribution.value = {
@@ -210,7 +314,7 @@ class AnalysisController extends GetxController {
     };
   }
 
-  /// Cập nhật phân phối các khía cạnh (aspects) dựa trên kết quả phân tích hiện tại.
+  /// Cập nhật phân phối aspects (nếu bạn dùng aspects trong analysisResults)
   void updateAspectDistribution() {
     if (analysisResults.isEmpty) {
       aspectDistribution.value = {};
@@ -235,131 +339,66 @@ class AnalysisController extends GetxController {
     aspectDistribution.value = aspects;
   }
 
-  /// Gọi mô hình NLP để phân tích một đánh giá, trả về kết quả dưới dạng Map.
-  Future<Map<String, dynamic>> _analyzeReviewNLP(String review) async {
+  /// Gọi Gemini để phân tích một review (dùng model dùng chung)
+  Future<Map<String, dynamic>> _analyzeReviewGemini(String review) async {
     try {
-      final model = GenerativeModel(
-        model: 'gemini-2.0-flash-lite',
-        apiKey: 'AIzaSyAJMiI18Oz0Si3E3Yas0mE43Q_V-W3-z7w',
-      );
-
       final prompt = '''
-      Phân tích đánh giá sản phẩm bằng tiếng Việt sử dụng NLP, sau đây và trả kết quả dưới dạng JSON. KHÔNG trả về bất kỳ nội dung khác ngoài JSON (không có dấu ``, markdown, hoặc text thừa).
+Bạn là chuyên gia phân tích sentiment cho đánh giá sản phẩm. Phân tích đánh giá sau và trả về KẾT QUẢ DƯỚI DẠNG JSON THUẦN (không có markdown, không có dấu backtick, không có text giải thích).
 
-      1. comment: Nội dung bình luận gốc
-      2. main_keywords: Danh sách các từ khóa chính được sử dụng để đánh giá (3-5 từ khóa chính)
-      3. sentiment: Phân loại cảm xúc tổng thể ("positive", "negative", hoặc "neutral")
-      4. polarity_score: Điểm phân cực cảm xúc từ -1.0 đến 1.0 
-         - Giá trị > 0 là tích cực
-         - Giá trị < 0 là tiêu cực
-         - Giá trị ≈ 0 là trung lập
-      5. sentiment_strength: Độ mạnh của cảm xúc, quy đổi polarity score thành phần trăm (0-100%)
+QUAN TRỌNG: 
+- Nếu đánh giá có từ ngữ tích cực (tốt, hài lòng, tuyệt vời, đẹp, chất lượng, nhanh, thích, recommend, 5 sao, v.v.) → sentiment phải là "positive" và polarity_score > 0.3
+- Nếu đánh giá có từ ngữ tiêu cực (kém, thất vọng, tệ, chậm, lỗi, hỏng, không tốt, không hài lòng, 1-2 sao, v.v.) → sentiment phải là "negative" và polarity_score < -0.3
+- CHỈ chọn "neutral" khi đánh giá thực sự trung lập, không có cảm xúc rõ ràng
 
-      Đánh giá: $review
+Đánh giá cần phân tích: "$review"
 
-      Ví dụ JSON cho đánh giá tích cực:
-      {
-        "comment": "Sản phẩm rất tốt, tôi rất hài lòng",
-        "main_keywords": ["rất tốt", "hài lòng"],
-        "sentiment": "positive",
-        "polarity_score": 0.75,
-        "sentiment_strength": 75
-      }
+Trả về JSON với format sau (KHÔNG có markdown, KHÔNG có backtick):
+{
+  "comment": "nội dung đánh giá gốc",
+  "main_keywords": ["từ khóa 1", "từ khóa 2", "từ khóa 3"],
+  "sentiment": "positive" hoặc "negative" hoặc "neutral",
+  "polarity_score": số từ -1.0 đến 1.0,
+  "sentiment_strength": số từ 0 đến 100
+}
 
-      Ví dụ JSON cho đánh giá tiêu cực:
-      {
-        "comment": "Sản phẩm chất lượng kém, rất thất vọng",
-        "main_keywords": ["chất lượng kém", "thất vọng"],
-        "sentiment": "negative",
-        "polarity_score": -0.68,
-        "sentiment_strength": 68
-      }
-
-      Ví dụ JSON cho đánh giá trung lập:
-      {
-        "comment": "Sản phẩm bình thường, có ưu điểm và nhược điểm",
-        "main_keywords": ["bình thường", "ưu điểm", "nhược điểm"],
-        "sentiment": "neutral",
-        "polarity_score": 0.05,
-        "sentiment_strength": 5
-      }
-
-      Chỉ trả về JSON, không kèm theo bất kỳ văn bản giải thích hoặc ghi chú nào.
+CHỈ trả về JSON, không có gì khác.
       ''';
 
       final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
 
-      print('Raw response from Gemini: ${response.text}');
+      final response = await _geminiModel
+          .generateContent(content)
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException('API call timeout');
+            },
+          );
 
-      String cleanedResponse = response.text!.trim();
-      if (cleanedResponse.startsWith('```json')) {
-        cleanedResponse = cleanedResponse.substring(7).trim();
-      }
-      if (cleanedResponse.endsWith('```')) {
-        cleanedResponse =
-            cleanedResponse.substring(0, cleanedResponse.length - 3).trim();
-      }
+      final rawResponse = response.text ?? '';
+      debugPrint('Raw response from Gemini: $rawResponse');
+      debugPrint('Review being analyzed: $review');
 
-      final data = jsonDecode(cleanedResponse);
-
-      final double polarityScore = data['polarity_score'].toDouble();
-      final int sentimentStrength = data['sentiment_strength'];
-
-      Map<String, double> sentimentPercentages = {};
-
-      if (data['sentiment'] == 'positive') {
-        sentimentPercentages = {
-          'positive_percent': sentimentStrength.toDouble(),
-          'neutral_percent': 100 - sentimentStrength.toDouble(),
-          'negative_percent': 0,
-        };
-      } else if (data['sentiment'] == 'negative') {
-        sentimentPercentages = {
-          'positive_percent': 0,
-          'neutral_percent': 100 - sentimentStrength.toDouble(),
-          'negative_percent': sentimentStrength.toDouble(),
-        };
-      } else {
-        final remainingPercent = 100 - sentimentStrength.toDouble();
-        sentimentPercentages = {
-          'positive_percent': remainingPercent / 2,
-          'neutral_percent': sentimentStrength.toDouble(),
-          'negative_percent': remainingPercent / 2,
-        };
-      }
-
-      return {
-        'review': data['comment'],
-        'main_keywords': List<String>.from(data['main_keywords']),
-        'sentiment': data['sentiment'],
-        'polarity_score': polarityScore,
-        'sentiment_strength': sentimentStrength,
-        'sentiment_percentages': sentimentPercentages,
-      };
+      final result = await compute(parseAnalysisResponse, [
+        rawResponse,
+        review,
+      ]);
+      debugPrint(
+        'Parsed result - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
+      );
+      return result;
     } catch (e) {
-      print('Error analyzing review with NLP: $e');
-      return {
-        'review': review,
-        'main_keywords': [],
-        'sentiment': 'neutral',
-        'polarity_score': 0.0,
-        'sentiment_strength': 0,
-        'sentiment_percentages': {
-          'positive_percent': 33.3,
-          'neutral_percent': 33.4,
-          'negative_percent': 33.3,
-        },
-      };
+      debugPrint('Error analyzing review with Gemini: $e');
+      return _defaultAnalysisResult(review);
     }
   }
 
-  /// Lưu kết quả phân tích hiện tại lên Firestore cho người dùng hiện tại.
+  /// Lưu kết quả phân tích hiện tại lên Firestore
   Future<void> saveAnalysisToFirebase() async {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-        print('Không thể lưu: Người dùng chưa đăng nhập');
+        debugPrint('Không thể lưu: Người dùng chưa đăng nhập');
         return;
       }
 
@@ -372,14 +411,13 @@ class AnalysisController extends GetxController {
       };
 
       await _firestore.collection('analyses').add(analysisData);
-
-      print('Đã lưu kết quả phân tích vào Firebase');
+      debugPrint('Đã lưu kết quả phân tích vào Firebase');
     } catch (e) {
-      print('Lỗi khi lưu kết quả phân tích: $e');
+      debugPrint('Lỗi khi lưu kết quả phân tích: $e');
     }
   }
 
-  /// Lấy lịch sử các lần phân tích của người dùng hiện tại từ Firestore.
+  /// Lịch sử phân tích
   Future<List<Map<String, dynamic>>> getAnalysisHistory() async {
     try {
       final currentUser = _auth.currentUser;
@@ -400,16 +438,424 @@ class AnalysisController extends GetxController {
         return data;
       }).toList();
     } catch (e) {
-      print('Lỗi khi lấy lịch sử phân tích: $e');
+      debugPrint('Lỗi khi lấy lịch sử phân tích: $e');
       return [];
     }
   }
 
-  /// Giải phóng resources khi controller bị hủy.
+  /// Thêm single task từ URL Tiki
+  Future<void> addAnalysisTask(String tikiUrl) async {
+    if (!TikiService.isValidTikiUrl(tikiUrl)) {
+      Get.snackbar(
+        'Lỗi',
+        'Link không hợp lệ. Vui lòng nhập link sản phẩm Tiki đúng định dạng',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+      return;
+    }
+
+    final taskId = DateTime.now().millisecondsSinceEpoch.toString();
+    final task = AnalysisTask(
+      id: taskId,
+      tikiUrl: tikiUrl,
+      initialStatus: 'pending',
+    );
+
+    tasks.add(task);
+
+    _processTaskInIsolate(task);
+  }
+
+  /// Thêm nhiều task từ các input fields
+  Future<void> addMultipleAnalysisTasksFromInputs() async {
+    final urls = getAllUrls();
+
+    if (urls.isEmpty) {
+      Get.snackbar(
+        'Lỗi',
+        'Vui lòng nhập ít nhất một link',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+      return;
+    }
+
+    final validUrls = <String>[];
+    final invalidUrls = <String>[];
+
+    for (final url in urls) {
+      if (TikiService.isValidTikiUrl(url)) {
+        validUrls.add(url);
+      } else {
+        invalidUrls.add(url);
+      }
+    }
+
+    if (invalidUrls.isNotEmpty) {
+      Get.snackbar(
+        'Cảnh báo',
+        '${invalidUrls.length} link không hợp lệ đã bị bỏ qua',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.withOpacity(0.1),
+        colorText: Colors.orange,
+        duration: const Duration(seconds: 3),
+      );
+    }
+
+    if (validUrls.isEmpty) {
+      Get.snackbar(
+        'Lỗi',
+        'Không có link hợp lệ nào để phân tích',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+      return;
+    }
+
+    final List<AnalysisTask> newTasks = [];
+    final baseTime = DateTime.now().millisecondsSinceEpoch;
+
+    for (int i = 0; i < validUrls.length; i++) {
+      final taskId = (baseTime + i).toString();
+      final task = AnalysisTask(
+        id: taskId,
+        tikiUrl: validUrls[i],
+        initialStatus: 'pending',
+      );
+      newTasks.add(task);
+      tasks.add(task);
+    }
+
+    clearAllUrlInputs();
+
+    Get.snackbar(
+      'Thành công',
+      'Đã thêm ${validUrls.length} task. Đang bắt đầu phân tích song song...',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.green.withOpacity(0.1),
+      colorText: Colors.green,
+      duration: const Duration(seconds: 2),
+    );
+
+    for (int i = 0; i < newTasks.length; i++) {
+      final task = newTasks[i];
+      if (i > 0) {
+        await Future.delayed(Duration(milliseconds: 200 * i));
+      }
+      _processTaskInIsolate(task);
+    }
+  }
+
+  /// Xử lý task độc lập
+  Future<void> _processTaskInIsolate(AnalysisTask task) async {
+    try {
+      task.updateStatus('fetching');
+      task.updateProgress(10);
+
+      final productName = await TikiService.getProductName(task.tikiUrl);
+      if (productName != null) {
+        task.productName.value = productName;
+      }
+
+      task.updateProgress(20);
+
+      final reviews = await TikiService.fetchReviewsFromTiki(task.tikiUrl);
+
+      if (reviews.isEmpty) {
+        task.setError('Không tìm thấy đánh giá nào cho sản phẩm này');
+        return;
+      }
+
+      task.updateProgress(30);
+      task.updateStatus('analyzing');
+
+      final activeTaskCount =
+          tasks
+              .where(
+                (t) =>
+                    t.status.value == 'fetching' ||
+                    t.status.value == 'analyzing',
+              )
+              .length;
+
+      final batchSize = activeTaskCount > 3 ? 3 : 4;
+      final List<Map<String, dynamic>> results = [];
+
+      for (int i = 0; i < reviews.length; i += batchSize) {
+        final batch = reviews.skip(i).take(batchSize).toList();
+
+        final batchResults = await Future.wait(
+          batch.map(
+            (review) => _analyzeReviewWithComputeWithRetry(review, task.id),
+          ),
+        );
+
+        for (final result in batchResults) {
+          task.addResult(result);
+          results.add(result);
+        }
+
+        final progress =
+            30 + ((i + batch.length) / reviews.length * 60).round();
+        task.updateProgress(progress);
+
+        if (i + batchSize < reviews.length && activeTaskCount > 1) {
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+      }
+
+      final sentimentDist = _calculateSentimentDistribution(results);
+      final aspectDist = _calculateAspectDistribution(results);
+
+      task.updateSentimentDistribution(sentimentDist);
+      task.updateAspectDistribution(aspectDist);
+      task.updateStatus('completed');
+      task.updateProgress(100);
+
+      int notificationId;
+      try {
+        notificationId = int.parse(task.id) % 1000000;
+      } catch (_) {
+        notificationId = task.id.hashCode.abs() % 1000000;
+      }
+
+      await NotificationService().showNotification(
+        id: notificationId,
+        title: 'Phân tích hoàn tất',
+        body:
+            'Đã phân tích ${reviews.length} đánh giá cho ${task.productName.value}',
+        payload: 'task_${task.id}',
+      );
+
+      await _saveTaskToFirebase(task);
+    } catch (e) {
+      task.setError('Lỗi khi xử lý: $e');
+    }
+  }
+
+  /// Phân tích review với retry
+  Future<Map<String, dynamic>> _analyzeReviewWithComputeWithRetry(
+    String review,
+    String taskId,
+  ) async {
+    const int maxRetries = 3;
+    int retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        return await _analyzeReviewWithCompute(review, taskId);
+      } catch (e) {
+        retryCount++;
+        debugPrint('Retry $retryCount / $maxRetries for task $taskId: $e');
+        if (retryCount >= maxRetries) {
+          debugPrint('Failed to analyze review after $maxRetries retries: $e');
+          return _defaultAnalysisResult(review);
+        }
+
+        await Future.delayed(Duration(milliseconds: 500 * retryCount));
+      }
+    }
+
+    return _defaultAnalysisResult(review);
+  }
+
+  /// Phân tích review (multi-task) + parse JSON bằng compute()
+  Future<Map<String, dynamic>> _analyzeReviewWithCompute(
+    String review,
+    String taskId,
+  ) async {
+    try {
+      final prompt = '''
+Bạn là chuyên gia phân tích sentiment cho đánh giá sản phẩm. Phân tích đánh giá sau và trả về KẾT QUẢ DƯỚI DẠNG JSON THUẦN (không có markdown, không có dấu backtick, không có text giải thích).
+
+QUAN TRỌNG: 
+- Nếu đánh giá có từ ngữ tích cực (tốt, hài lòng, tuyệt vời, đẹp, chất lượng, nhanh, thích, recommend, 5 sao, v.v.) → sentiment phải là "positive" và polarity_score > 0.3
+- Nếu đánh giá có từ ngữ tiêu cực (kém, thất vọng, tệ, chậm, lỗi, hỏng, không tốt, không hài lòng, 1-2 sao, v.v.) → sentiment phải là "negative" và polarity_score < -0.3
+- CHỈ chọn "neutral" khi đánh giá thực sự trung lập, không có cảm xúc rõ ràng
+
+Đánh giá cần phân tích: "$review"
+
+Trả về JSON với format sau (KHÔNG có markdown, KHÔNG có backtick):
+{
+  "comment": "nội dung đánh giá gốc",
+  "main_keywords": ["từ khóa 1", "từ khóa 2", "từ khóa 3"],
+  "sentiment": "positive" hoặc "negative" hoặc "neutral",
+  "polarity_score": số từ -1.0 đến 1.0,
+  "sentiment_strength": số từ 0 đến 100
+}
+
+CHỈ trả về JSON, không có gì khác.
+      ''';
+
+      final content = [Content.text(prompt)];
+
+      final response = await _geminiModel
+          .generateContent(content)
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException('API call timeout for task $taskId');
+            },
+          );
+
+      final rawResponse = response.text ?? '';
+      debugPrint('Raw response from Gemini (task $taskId): $rawResponse');
+      debugPrint('Review being analyzed (task $taskId): $review');
+
+      final result = await compute(parseAnalysisResponse, [
+        rawResponse,
+        review,
+      ]);
+
+      debugPrint(
+        'Parsed result (task $taskId) - sentiment: ${result['sentiment']}, polarity: ${result['polarity_score']}',
+      );
+
+      return result;
+    } catch (e) {
+      debugPrint('Error _analyzeReviewWithCompute (task $taskId): $e');
+      return _defaultAnalysisResult(review);
+    }
+  }
+
+  /// Tính phân phối sentiment
+  Map<String, double> _calculateSentimentDistribution(
+    List<Map<String, dynamic>> results,
+  ) {
+    if (results.isEmpty) {
+      return {'positive': 0.0, 'neutral': 0.0, 'negative': 0.0};
+    }
+
+    final total = results.length;
+    final positiveCount =
+        results.where((r) => r['sentiment'] == 'positive').length;
+    final neutralCount =
+        results.where((r) => r['sentiment'] == 'neutral').length;
+    final negativeCount =
+        results.where((r) => r['sentiment'] == 'negative').length;
+
+    return {
+      'positive': (positiveCount / total) * 100,
+      'neutral': (neutralCount / total) * 100,
+      'negative': (negativeCount / total) * 100,
+    };
+  }
+
+  /// Tính phân phối keywords (dùng main_keywords làm aspects)
+  Map<String, int> _calculateAspectDistribution(
+    List<Map<String, dynamic>> results,
+  ) {
+    final Map<String, int> aspects = {};
+
+    for (final result in results) {
+      if (result.containsKey('main_keywords')) {
+        for (final keyword in result['main_keywords'] as List<dynamic>) {
+          final keywordStr = keyword.toString();
+          aspects[keywordStr] = (aspects[keywordStr] ?? 0) + 1;
+        }
+      }
+    }
+
+    return aspects;
+  }
+
+  /// Lưu task vào Firebase
+  Future<void> _saveTaskToFirebase(AnalysisTask task) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      await _firestore.collection('analyses').add({
+        'userId': currentUser.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+        'tikiUrl': task.tikiUrl,
+        'productName': task.productName.value,
+        'reviews': task.analysisResults.toList(),
+        'sentimentDistribution': task.sentimentDistribution.value,
+        'reviewCount': task.analysisResults.length,
+        'taskId': task.id,
+      });
+    } catch (e) {
+      debugPrint('Error saving task to Firebase: $e');
+    }
+  }
+
+  /// Xóa một task
+  void removeTask(String taskId) {
+    tasks.removeWhere((task) => task.id == taskId);
+  }
+
+  /// Xóa tất cả tasks
+  void clearAllTasks() {
+    tasks.clear();
+  }
+
+  /// onInit
+  @override
+  void onInit() {
+    super.onInit();
+
+    // Khởi tạo Gemini model dùng chung
+    _geminiModel = GenerativeModel(
+      model: 'gemini-2.0-flash-lite', // hoặc 'gemini-1.5-flash' tùy project
+      apiKey:
+          'AIzaSyBDpBN3hkC5OFwKFWTKVYWyFrSv5l5lUcM', // TODO: Lấy từ env/remote config
+    );
+
+    urlInputController.addListener(() {
+      urlInputText.value = urlInputController.text;
+    });
+
+    addUrlInputField();
+  }
+
+  /// Thêm một input field cho URL
+  void addUrlInputField() {
+    final controller = TextEditingController();
+    urlInputs.add(controller);
+  }
+
+  /// Xóa một input field
+  void removeUrlInputField(int index) {
+    if (urlInputs.length > 1) {
+      urlInputs[index].dispose();
+      urlInputs.removeAt(index);
+    }
+  }
+
+  /// Lấy tất cả URLs từ các input fields
+  List<String> getAllUrls() {
+    return urlInputs
+        .map((controller) => controller.text.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+  }
+
+  /// Xóa tất cả input fields
+  void clearAllUrlInputs() {
+    for (final controller in urlInputs) {
+      controller.dispose();
+    }
+    urlInputs.clear();
+    addUrlInputField();
+  }
+
+  /// onClose: giải phóng resources
   @override
   void onClose() {
     reviewsController.dispose();
     tikiUrlController.dispose();
+    urlInputController.dispose();
+
+    for (final controller in urlInputs) {
+      controller.dispose();
+    }
+    urlInputs.clear();
+
     super.onClose();
   }
 }

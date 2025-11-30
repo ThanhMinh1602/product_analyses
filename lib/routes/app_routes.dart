@@ -5,5 +5,6 @@ class AppRoutes {
   static const String home = '/home';
   static const String analysis = '/analysis';
   static const String analysisDetail = '/analysis-detail';
+  static const String multiTaskAnalysis = '/multi-task-analysis';
   static const String history = '/history';
 }
